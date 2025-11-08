@@ -1,0 +1,653 @@
+---
+title: "Environment Variables"
+description: "Complete reference for VIJ Admin environment variables"
+---
+
+VIJ Admin is configured entirely through environment variables. This page documents all available variables, their purposes, and recommended values.
+
+## Required Variables
+
+These variables must be set for VIJ Admin to function.
+
+### MONGODB_URI
+
+<ParamField path="MONGODB_URI" type="string" required>
+MongoDB connection string for storing error logs.
+
+**Format**: `mongodb://[username:password@]host[:port]/database[?options]`
+
+**Examples**:
+
+<CodeGroup>
+```bash Local MongoDB
+MONGODB_URI=mongodb://localhost:27017/vij
+```
+
+```bash MongoDB Atlas
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/vij?retryWrites=true&w=majority
+```
+
+```bash With Authentication
+MONGODB_URI=mongodb://admin:password@localhost:27017/vij?authSource=admin
+```
+
+```bash Replica Set
+MONGODB_URI=mongodb://host1:27017,host2:27017,host3:27017/vij?replicaSet=rs0
+```
+
+```bash With SSL/TLS
+MONGODB_URI=mongodb://host:27017/vij?ssl=true&tlsCAFile=/path/to/ca.pem
+```
+</CodeGroup>
+
+**Connection Options**:
+- `retryWrites=true` - Automatically retry write operations
+- `w=majority` - Write concern for data durability
+- `authSource=admin` - Database for authentication
+- `ssl=true` - Enable SSL/TLS encryption
+- `maxPoolSize=50` - Maximum connection pool size
+- `minPoolSize=10` - Minimum connection pool size
+
+<Warning>
+Never commit this value to version control. Use `.env.local` (git-ignored) or environment-specific configuration.
+</Warning>
+</ParamField>
+
+### NEXT_PUBLIC_BASE_URL
+
+<ParamField path="NEXT_PUBLIC_BASE_URL" type="string" required>
+The public URL where your VIJ Admin dashboard is accessible.
+
+**Usage**: Used for API endpoints, redirects, and client-side routing.
+
+**Format**: Complete URL with protocol (http/https) and domain/port.
+
+**Examples**:
+
+<CodeGroup>
+```bash Development
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
+```bash Production (Vercel)
+NEXT_PUBLIC_BASE_URL=https://vij-admin.vercel.app
+```
+
+```bash Custom Domain
+NEXT_PUBLIC_BASE_URL=https://vij.yourdomain.com
+```
+
+```bash Custom Port
+NEXT_PUBLIC_BASE_URL=http://localhost:8080
+```
+</CodeGroup>
+
+<Tip>
+The `NEXT_PUBLIC_` prefix makes this variable available in both server and client code.
+</Tip>
+
+<Note>
+Update this variable when:
+- Changing domains
+- Moving from development to production
+- Changing ports
+- Adding/removing SSL
+</Note>
+</ParamField>
+
+## Optional Variables
+
+These variables enable additional features or customize behavior.
+
+### GEMINI_API_KEY
+
+<ParamField path="GEMINI_API_KEY" type="string">
+Google Gemini API key for AI-powered error analysis.
+
+**Get a key**: Visit [ai.google.dev](https://ai.google.dev) to create an API key.
+
+**Example**:
+```bash
+GEMINI_API_KEY=AIzaSyC1234567890abcdefghijklmnopqrstuv
+```
+
+**Features Enabled**:
+- AI error summaries
+- Root cause analysis
+- Suggested fixes
+- Pattern detection
+
+**Without this key**:
+- VIJ works normally
+- AI features are disabled
+- No error messages shown
+
+<Tip>
+Google Gemini offers a generous free tier. Most VIJ installations stay within free limits.
+</Tip>
+</ParamField>
+
+### NODE_ENV
+
+<ParamField path="NODE_ENV" type="string" default="development">
+Node.js environment mode.
+
+**Values**:
+- `development` - Development mode with debugging enabled
+- `production` - Production mode with optimizations
+- `test` - Test mode (used for automated testing)
+
+**Examples**:
+```bash Development
+NODE_ENV=development
+```
+
+```bash Production
+NODE_ENV=production
+```
+
+**Effects**:
+
+| Feature | Development | Production |
+|---------|-------------|------------|
+| Error details | Full stack traces | Sanitized errors |
+| Logging | Verbose | Minimal |
+| Optimizations | Disabled | Enabled |
+| Source maps | Enabled | Disabled |
+| Cache | Disabled | Enabled |
+
+<Warning>
+Always use `NODE_ENV=production` for production deployments to enable performance optimizations and security features.
+</Warning>
+</ParamField>
+
+### PORT
+
+<ParamField path="PORT" type="number" default="3000">
+Port number for the Next.js server.
+
+**Examples**:
+```bash Default
+PORT=3000
+```
+
+```bash Custom Port
+PORT=8080
+```
+
+```bash Production (Behind Proxy)
+PORT=3000
+```
+
+<Note>
+When using a reverse proxy (Nginx, Apache), you typically keep this at 3000 and configure the proxy to forward requests.
+</Note>
+</ParamField>
+
+### MONGODB_OPTIONS
+
+<ParamField path="MONGODB_OPTIONS" type="string">
+Additional MongoDB connection options as JSON.
+
+**Example**:
+```bash
+MONGODB_OPTIONS='{"maxPoolSize":100,"minPoolSize":10,"serverSelectionTimeoutMS":5000}'
+```
+
+**Common Options**:
+```json
+{
+  "maxPoolSize": 100,
+  "minPoolSize": 10,
+  "maxIdleTimeMS": 300000,
+  "serverSelectionTimeoutMS": 5000,
+  "socketTimeoutMS": 45000,
+  "family": 4,
+  "retryWrites": true,
+  "retryReads": true,
+  "compressors": ["snappy", "zlib"]
+}
+```
+
+<Tip>
+Most applications don't need custom options. The defaults are optimized for typical usage.
+</Tip>
+</ParamField>
+
+### LOG_RETENTION_DAYS
+
+<ParamField path="LOG_RETENTION_DAYS" type="number" default="90">
+Number of days to retain logs before automatic deletion.
+
+**Examples**:
+```bash 30 Days
+LOG_RETENTION_DAYS=30
+```
+
+```bash 1 Year
+LOG_RETENTION_DAYS=365
+```
+
+```bash Disabled (Keep Forever)
+LOG_RETENTION_DAYS=0
+```
+
+**Behavior**:
+- Logs older than this value are deleted automatically
+- Deletion runs daily at midnight UTC
+- Set to `0` to disable automatic deletion
+
+<Warning>
+Longer retention periods increase database size. Monitor storage usage and implement appropriate retention policies.
+</Warning>
+</ParamField>
+
+### ENABLE_TELEMETRY
+
+<ParamField path="ENABLE_TELEMETRY" type="boolean" default="false">
+Enable anonymous usage telemetry for VIJ development.
+
+**Values**: `true` or `false`
+
+**Examples**:
+```bash Enabled
+ENABLE_TELEMETRY=true
+```
+
+```bash Disabled
+ENABLE_TELEMETRY=false
+```
+
+**Data Collected** (if enabled):
+- Installation count
+- Feature usage (anonymized)
+- Error rates (aggregate only)
+- No PII or error content
+
+<Note>
+Telemetry helps improve VIJ. All data is anonymous and aggregated. You can disable it anytime.
+</Note>
+</ParamField>
+
+## Environment-Specific Configuration
+
+### Development (.env.local)
+
+```bash .env.local
+# Database
+MONGODB_URI=mongodb://localhost:27017/vij
+
+# Application
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NODE_ENV=development
+
+# Features
+GEMINI_API_KEY=your_development_key
+
+# Debug
+DEBUG=true
+LOG_LEVEL=debug
+```
+
+### Production (.env.production)
+
+```bash .env.production
+# Database (MongoDB Atlas)
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/vij?retryWrites=true&w=majority
+
+# Application
+NEXT_PUBLIC_BASE_URL=https://vij.yourdomain.com
+NODE_ENV=production
+PORT=3000
+
+# Features
+GEMINI_API_KEY=your_production_key
+
+# Retention
+LOG_RETENTION_DAYS=90
+
+# Telemetry
+ENABLE_TELEMETRY=true
+```
+
+### Staging (.env.staging)
+
+```bash .env.staging
+# Database
+MONGODB_URI=mongodb+srv://user:pass@staging-cluster.mongodb.net/vij-staging
+
+# Application
+NEXT_PUBLIC_BASE_URL=https://vij-staging.yourdomain.com
+NODE_ENV=production
+
+# Features
+GEMINI_API_KEY=your_staging_key
+
+# Retention (shorter for staging)
+LOG_RETENTION_DAYS=30
+```
+
+## Platform-Specific Configuration
+
+### Vercel
+
+Set environment variables in the Vercel dashboard:
+
+1. Go to **Project Settings** → **Environment Variables**
+2. Add variables for each environment (Production, Preview, Development)
+3. Deploy
+
+**Required for Vercel**:
+```bash
+MONGODB_URI=your_atlas_connection_string
+NEXT_PUBLIC_BASE_URL=https://your-project.vercel.app
+```
+
+<Tip>
+Vercel automatically sets `NODE_ENV=production` for production deployments.
+</Tip>
+
+### Docker
+
+Pass environment variables via Docker run command:
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -e MONGODB_URI="mongodb://mongo:27017/vij" \
+  -e NEXT_PUBLIC_BASE_URL="http://localhost:3000" \
+  -e GEMINI_API_KEY="your_key" \
+  vij-admin:latest
+```
+
+Or use environment file:
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  --env-file .env.production \
+  vij-admin:latest
+```
+
+### Docker Compose
+
+```yaml docker-compose.yml
+services:
+  vij-admin:
+    image: vij-admin:latest
+    ports:
+      - "3000:3000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/vij
+      NEXT_PUBLIC_BASE_URL: http://localhost:3000
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    # Or use env_file
+    env_file:
+      - .env.production
+```
+
+### Kubernetes
+
+Use Kubernetes secrets:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vij-secrets
+type: Opaque
+stringData:
+  mongodb-uri: "mongodb+srv://..."
+  gemini-api-key: "your_key"
+  next-public-base-url: "https://vij.yourdomain.com"
+```
+
+Reference in deployment:
+
+```yaml
+env:
+  - name: MONGODB_URI
+    valueFrom:
+      secretKeyRef:
+        name: vij-secrets
+        key: mongodb-uri
+  - name: NEXT_PUBLIC_BASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: vij-secrets
+        key: next-public-base-url
+```
+
+## Loading Environment Variables
+
+### Next.js Built-in Support
+
+Next.js automatically loads:
+- `.env.local` - All environments (git-ignored)
+- `.env.production` - Production builds
+- `.env.development` - Development builds
+- `.env` - All environments (committed to git)
+
+**Priority** (highest to lowest):
+1. `process.env` (system environment)
+2. `.env.$(NODE_ENV).local`
+3. `.env.local` (not loaded when `NODE_ENV=test`)
+4. `.env.$(NODE_ENV)`
+5. `.env`
+
+<Warning>
+Never commit `.env.local` files. Use `.env.example` as a template.
+</Warning>
+
+### Manual Loading (Node.js)
+
+For scripts or custom tooling:
+
+```javascript
+import dotenv from 'dotenv';
+
+// Load .env.local
+dotenv.config({ path: '.env.local' });
+
+// Load environment-specific
+dotenv.config({ path: `.env.${process.env.NODE_ENV}` });
+
+console.log(process.env.MONGODB_URI);
+```
+
+## Environment File Template
+
+Create `.env.example` for documentation:
+
+```bash .env.example
+# VIJ Admin Environment Configuration Template
+# Copy this file to .env.local and fill in your values
+
+# ===================================
+# Required Configuration
+# ===================================
+
+# MongoDB connection string
+MONGODB_URI=mongodb://localhost:27017/vij
+
+# Application base URL
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# ===================================
+# Optional Configuration
+# ===================================
+
+# Google Gemini API key for AI features (optional)
+# Get your key at: https://ai.google.dev
+GEMINI_API_KEY=
+
+# Node.js environment (development|production|test)
+NODE_ENV=development
+
+# Server port
+PORT=3000
+
+# Log retention in days (0 = keep forever)
+LOG_RETENTION_DAYS=90
+
+# Enable anonymous telemetry
+ENABLE_TELEMETRY=false
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Never commit secrets">
+    Add to `.gitignore`:
+
+    ```bash .gitignore
+    # Environment files
+    .env.local
+    .env.*.local
+    .env.production.local
+
+    # Keep template
+    !.env.example
+    ```
+  </Accordion>
+
+  <Accordion title="Use different keys per environment">
+    ```bash
+    # Development
+    GEMINI_API_KEY=dev_key_with_low_quota
+
+    # Production
+    GEMINI_API_KEY=prod_key_with_high_quota
+    ```
+
+    Prevents accidental quota exhaustion and isolates environments.
+  </Accordion>
+
+  <Accordion title="Rotate secrets regularly">
+    - MongoDB passwords: Every 90 days
+    - API keys: Every 180 days
+    - Update in all environments
+    - Document rotation in runbook
+  </Accordion>
+
+  <Accordion title="Use secret management services">
+    For production:
+    - **AWS Secrets Manager**
+    - **HashiCorp Vault**
+    - **Azure Key Vault**
+    - **Google Secret Manager**
+
+    ```javascript
+    // Example: AWS Secrets Manager
+    import { SecretsManager } from '@aws-sdk/client-secrets-manager';
+
+    const client = new SecretsManager({ region: 'us-east-1' });
+    const secret = await client.getSecretValue({ SecretId: 'vij/mongodb' });
+    const MONGODB_URI = JSON.parse(secret.SecretString).uri;
+    ```
+  </Accordion>
+
+  <Accordion title="Validate environment variables on startup">
+    ```javascript lib/config.ts
+    const requiredEnvVars = [
+      'MONGODB_URI',
+      'NEXT_PUBLIC_BASE_URL'
+    ];
+
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar]) {
+        throw new Error(`Missing required environment variable: ${envVar}`);
+      }
+    }
+
+    export const config = {
+      mongodb: {
+        uri: process.env.MONGODB_URI!
+      },
+      baseUrl: process.env.NEXT_PUBLIC_BASE_URL!,
+      geminiApiKey: process.env.GEMINI_API_KEY
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Environment variables not loading">
+    **Issue**: Variables are `undefined` at runtime
+
+    **Solutions**:
+    1. Check file name is exactly `.env.local` (not `.env.txt` or `.env`)
+    2. Restart dev server after changes
+    3. Ensure no typos in variable names
+    4. Check `.env.local` is in project root
+    5. For client-side variables, use `NEXT_PUBLIC_` prefix
+  </Accordion>
+
+  <Accordion title="NEXT_PUBLIC_ variables not available in client">
+    **Issue**: Client code cannot access environment variables
+
+    **Solution**: Use `NEXT_PUBLIC_` prefix
+
+    ```javascript
+    // Server-side only
+    const key = process.env.GEMINI_API_KEY;
+
+    // Client and server
+    const url = process.env.NEXT_PUBLIC_BASE_URL;
+    ```
+  </Accordion>
+
+  <Accordion title="MongoDB connection string format errors">
+    **Issue**: Invalid connection string format
+
+    **Common mistakes**:
+    ```bash
+    # Wrong - missing mongodb://
+    MONGODB_URI=localhost:27017/vij
+
+    # Wrong - spaces in URL
+    MONGODB_URI=mongodb://user : pass@host/db
+
+    # Wrong - unencoded password
+    MONGODB_URI=mongodb://user:p@ssw0rd!@host/db
+
+    # Correct - URL-encoded password
+    MONGODB_URI=mongodb://user:p%40ssw0rd%21@host/db
+    ```
+
+    **URL-encode special characters** in passwords:
+    - `@` → `%40`
+    - `:` → `%3A`
+    - `/` → `%2F`
+    - `?` → `%3F`
+    - `#` → `%23`
+  </Accordion>
+
+  <Accordion title="Vercel environment variables not updating">
+    **Issue**: Changes to environment variables not reflected
+
+    **Solution**:
+    1. Update variables in Vercel dashboard
+    2. Trigger a new deployment (redeploy or push commit)
+    3. Environment variables are set at build time, not runtime
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Setup" icon="wrench" href="/dashboard/setup">
+    Complete setup guide for VIJ Admin
+  </Card>
+  <Card title="Deployment Guide" icon="rocket" href="/dashboard/deployment">
+    Deploy VIJ Admin to production
+  </Card>
+  <Card title="SDK Configuration" icon="sliders" href="/sdk/configuration">
+    Configure the vij-sdk client
+  </Card>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Get started with VIJ in minutes
+  </Card>
+</CardGroup>

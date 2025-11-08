@@ -1,0 +1,738 @@
+---
+title: "Capturing Errors"
+description: "Learn how to capture exceptions and messages with vij-sdk"
+---
+
+The vij-sdk provides two main APIs for capturing errors and messages: `captureException()` for error objects and `captureMessage()` for custom log messages.
+
+## captureException()
+
+Capture and send error objects to your VIJ Admin dashboard.
+
+### Basic Usage
+
+```javascript
+import { captureException } from "vij-sdk";
+
+try {
+  // Code that might throw an error
+  const result = riskyOperation();
+} catch (error) {
+  captureException(error);
+}
+```
+
+### Signature
+
+```typescript
+captureException(
+  error: Error,
+  metadata?: Record<string, any>,
+  severity?: "error" | "warning" | "info"
+): void
+```
+
+### Parameters
+
+<ParamField path="error" type="Error" required>
+The error object to capture. Can be any JavaScript Error instance or object with `name`, `message`, and `stack` properties.
+
+**Supported Types**:
+- Native JavaScript errors (`Error`, `TypeError`, `ReferenceError`, etc.)
+- Custom error classes extending `Error`
+- Objects with error-like structure
+
+```javascript
+// Native error
+captureException(new Error("Something went wrong"));
+
+// Custom error class
+class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+captureException(new ValidationError("Invalid email format"));
+
+// Error from catch block
+try {
+  await fetchData();
+} catch (error) {
+  captureException(error);
+}
+```
+</ParamField>
+
+<ParamField path="metadata" type="object" default="{}">
+Additional contextual information to attach to this specific error.
+
+**Use Cases**:
+- User information (ID, email, role)
+- Request details (URL, method, headers)
+- Application state at time of error
+- Feature or component context
+
+```javascript
+captureException(error, {
+  userId: "user-123",
+  userEmail: "user@example.com",
+  feature: "checkout",
+  cartTotal: 99.99,
+  requestUrl: "/api/payment",
+  requestMethod: "POST"
+});
+```
+
+<Tip>
+Metadata is merged with global metadata from `init()`. Per-error metadata takes precedence.
+</Tip>
+</ParamField>
+
+<ParamField path="severity" type="string" default="error">
+The severity level of this error.
+
+**Options**:
+- `"error"` - Critical errors requiring immediate attention
+- `"warning"` - Non-critical issues that should be investigated
+- `"info"` - Informational logs for tracking behavior
+
+```javascript
+// Critical error
+captureException(error, { feature: "payment" }, "error");
+
+// Non-critical warning
+captureException(deprecationError, { api: "legacy" }, "warning");
+
+// Informational
+captureException(new Error("Rate limit approaching"), {}, "info");
+```
+
+<Note>
+Severity levels help you filter and prioritize errors in the dashboard.
+</Note>
+</ParamField>
+
+### Automatic Error Capture
+
+The SDK automatically captures **uncaught errors** and **unhandled promise rejections** without any additional code:
+
+<Tabs>
+  <Tab title="Browser">
+    ```javascript
+    // Automatically captured - no try/catch needed
+    window.addEventListener("click", () => {
+      throw new Error("Button click error"); // Captured automatically
+    });
+
+    // Unhandled promise rejection - automatically captured
+    fetch("/api/data").then(response => {
+      throw new Error("Processing failed"); // Captured automatically
+    });
+    ```
+
+    **Browser Events Captured**:
+    - `window.onerror` - Uncaught exceptions
+    - `window.onunhandledrejection` - Unhandled promise rejections
+  </Tab>
+
+  <Tab title="Node.js">
+    ```javascript
+    // Automatically captured - no try/catch needed
+    process.nextTick(() => {
+      throw new Error("Async error"); // Captured automatically
+    });
+
+    // Unhandled promise rejection - automatically captured
+    Promise.reject(new Error("Rejected promise")); // Captured automatically
+    ```
+
+    **Node.js Events Captured**:
+    - `process.on("uncaughtException")` - Uncaught exceptions
+    - `process.on("unhandledRejection")` - Unhandled promise rejections
+  </Tab>
+</Tabs>
+
+<Warning>
+While automatic capture is convenient, it's better to explicitly catch and handle errors in production code. Use `captureException()` in catch blocks for better control.
+</Warning>
+
+### Advanced Examples
+
+#### Capturing with Rich Metadata
+
+```javascript
+import { captureException } from "vij-sdk";
+
+async function processPayment(userId, amount) {
+  try {
+    const payment = await stripeAPI.charge({ userId, amount });
+    return payment;
+  } catch (error) {
+    captureException(error, {
+      // User context
+      userId: userId,
+      userPlan: "premium",
+
+      // Transaction context
+      paymentAmount: amount,
+      currency: "USD",
+
+      // Application state
+      cartItems: 5,
+      discountApplied: true,
+
+      // Technical details
+      stripeApiVersion: "2023-10-16",
+      timestamp: new Date().toISOString()
+    });
+
+    throw error; // Re-throw after capturing
+  }
+}
+```
+
+#### Capturing Errors in React Components
+
+```javascript
+import { captureException } from "vij-sdk";
+import { Component } from "react";
+
+class ErrorBoundary extends Component {
+  componentDidCatch(error, errorInfo) {
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      route: window.location.pathname,
+      userAgent: navigator.userAgent
+    });
+  }
+
+  render() {
+    return this.props.children;
+  }
+}
+```
+
+#### Capturing Errors in Express Middleware
+
+```javascript
+import { captureException } from "vij-sdk";
+
+app.use((err, req, res, next) => {
+  captureException(err, {
+    requestUrl: req.originalUrl,
+    requestMethod: req.method,
+    requestHeaders: req.headers,
+    requestBody: req.body,
+    userId: req.user?.id,
+    ipAddress: req.ip
+  });
+
+  res.status(500).json({ error: "Internal server error" });
+});
+```
+
+## captureMessage()
+
+Capture custom log messages without an error object.
+
+### Basic Usage
+
+```javascript
+import { captureMessage } from "vij-sdk";
+
+captureMessage("User logged in successfully");
+```
+
+### Signature
+
+```typescript
+captureMessage(
+  message: string,
+  metadata?: Record<string, any>,
+  severity?: "error" | "warning" | "info"
+): void
+```
+
+### Parameters
+
+<ParamField path="message" type="string" required>
+The log message to capture.
+
+**Best Practices**:
+- Use clear, descriptive messages
+- Include relevant details in the message or metadata
+- Keep messages concise but informative
+
+```javascript
+// Good
+captureMessage("Payment processed successfully for order #12345");
+
+// Better - use metadata
+captureMessage("Payment processed successfully", { orderId: 12345 });
+```
+</ParamField>
+
+<ParamField path="metadata" type="object" default="{}">
+Additional contextual information to attach to this message.
+
+```javascript
+captureMessage("User action", {
+  action: "button_click",
+  buttonId: "checkout",
+  userId: "user-123",
+  timestamp: Date.now()
+});
+```
+</ParamField>
+
+<ParamField path="severity" type="string" default="info">
+The severity level of this message.
+
+**Options**:
+- `"info"` - Informational messages (default for captureMessage)
+- `"warning"` - Warning messages
+- `"error"` - Error messages
+
+```javascript
+// Info level (default)
+captureMessage("User logged in", { userId: "123" }, "info");
+
+// Warning level
+captureMessage("Rate limit approaching", { requestCount: 950 }, "warning");
+
+// Error level
+captureMessage("Configuration missing", { key: "API_KEY" }, "error");
+```
+</ParamField>
+
+### Use Cases
+
+<Tabs>
+  <Tab title="User Actions">
+    ```javascript
+    import { captureMessage } from "vij-sdk";
+
+    function trackUserAction(action, details) {
+      captureMessage(`User action: ${action}`, {
+        userId: details.userId,
+        actionType: action,
+        timestamp: new Date().toISOString(),
+        ...details
+      }, "info");
+    }
+
+    // Track button clicks
+    trackUserAction("checkout_clicked", {
+      userId: "user-123",
+      cartValue: 99.99
+    });
+
+    // Track form submissions
+    trackUserAction("form_submitted", {
+      formId: "contact-form",
+      fields: 5
+    });
+    ```
+  </Tab>
+
+  <Tab title="System Events">
+    ```javascript
+    import { captureMessage } from "vij-sdk";
+
+    // Database connection
+    captureMessage("Database connected successfully", {
+      host: "mongodb.example.com",
+      database: "production",
+      connectTime: 1234
+    }, "info");
+
+    // Cache operations
+    captureMessage("Cache hit", {
+      key: "user:123",
+      ttl: 3600
+    }, "info");
+
+    // Scheduled tasks
+    captureMessage("Cron job completed", {
+      job: "daily-report",
+      duration: 5432,
+      recordsProcessed: 10000
+    }, "info");
+    ```
+  </Tab>
+
+  <Tab title="Performance Monitoring">
+    ```javascript
+    import { captureMessage } from "vij-sdk";
+
+    function trackPerformance(operation, duration) {
+      const severity = duration > 5000 ? "warning" : "info";
+
+      captureMessage(`Performance: ${operation}`, {
+        operation,
+        duration,
+        threshold: 5000,
+        exceeded: duration > 5000
+      }, severity);
+    }
+
+    // Track API response times
+    const start = Date.now();
+    await fetchData();
+    trackPerformance("fetchData", Date.now() - start);
+    ```
+  </Tab>
+
+  <Tab title="Business Logic">
+    ```javascript
+    import { captureMessage } from "vij-sdk";
+
+    // Track important business events
+    captureMessage("Order placed", {
+      orderId: "ORD-12345",
+      userId: "user-123",
+      total: 199.99,
+      items: 3,
+      paymentMethod: "credit_card"
+    }, "info");
+
+    // Track threshold events
+    if (inventoryCount < 10) {
+      captureMessage("Low inventory warning", {
+        productId: "PROD-456",
+        currentStock: inventoryCount,
+        threshold: 10
+      }, "warning");
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Contextual Information
+
+Both `captureException()` and `captureMessage()` automatically collect rich contextual information:
+
+### Browser Context
+
+```json
+{
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "screen": {
+    "width": 1920,
+    "height": 1080,
+    "colorDepth": 24
+  },
+  "browser": {
+    "userAgent": "Mozilla/5.0...",
+    "language": "en-US",
+    "platform": "MacIntel",
+    "cookieEnabled": true,
+    "doNotTrack": "1"
+  },
+  "network": {
+    "effectiveType": "4g",
+    "downlink": 10,
+    "rtt": 50
+  }
+}
+```
+
+### Node.js Context
+
+```json
+{
+  "process": {
+    "pid": 12345,
+    "platform": "linux",
+    "arch": "x64",
+    "nodeVersion": "v20.0.0",
+    "uptime": 3600,
+    "memory": {
+      "rss": 50000000,
+      "heapTotal": 30000000,
+      "heapUsed": 20000000,
+      "external": 1000000
+    }
+  }
+}
+```
+
+<Note>
+This context is collected automatically. You don't need to add it manually.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always include relevant metadata">
+    Add contextual information that will help debug the issue:
+
+    ```javascript
+    // Good
+    captureException(error, {
+      userId: user.id,
+      feature: "checkout",
+      step: "payment",
+      paymentMethod: "stripe"
+    });
+
+    // Bad
+    captureException(error); // Missing context
+    ```
+  </Accordion>
+
+  <Accordion title="Use appropriate severity levels">
+    **Error**: Critical issues requiring immediate attention
+    ```javascript
+    captureException(paymentError, { orderId: 123 }, "error");
+    ```
+
+    **Warning**: Issues that should be investigated but aren't critical
+    ```javascript
+    captureException(deprecatedApiWarning, {}, "warning");
+    ```
+
+    **Info**: Tracking and informational purposes
+    ```javascript
+    captureMessage("Feature flag enabled", { flag: "new-ui" }, "info");
+    ```
+  </Accordion>
+
+  <Accordion title="Avoid capturing sensitive data">
+    Never log passwords, tokens, or PII without sanitization:
+
+    ```javascript
+    // Bad
+    captureException(error, {
+      password: user.password, // Never log passwords!
+      creditCard: user.card // Never log card numbers!
+    });
+
+    // Good
+    captureException(error, {
+      userId: user.id, // Use IDs instead
+      hasPaymentMethod: !!user.card // Use boolean flags
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Don't capture errors in tight loops">
+    Avoid overwhelming your VIJ instance with duplicate errors:
+
+    ```javascript
+    // Bad
+    for (let i = 0; i < 10000; i++) {
+      try {
+        processItem(i);
+      } catch (error) {
+        captureException(error); // Will create 10000 errors!
+      }
+    }
+
+    // Good - batch errors or add deduplication
+    const errors = [];
+    for (let i = 0; i < 10000; i++) {
+      try {
+        processItem(i);
+      } catch (error) {
+        errors.push({ index: i, error });
+      }
+    }
+    if (errors.length > 0) {
+      captureException(new Error(`Batch processing failed`), {
+        failedCount: errors.length,
+        totalItems: 10000
+      });
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Re-throw errors after capturing">
+    Capture the error but don't swallow it:
+
+    ```javascript
+    // Good
+    try {
+      await criticalOperation();
+    } catch (error) {
+      captureException(error, { operation: "critical" });
+      throw error; // Re-throw for upstream handling
+    }
+
+    // Bad
+    try {
+      await criticalOperation();
+    } catch (error) {
+      captureException(error);
+      // Swallowed! Upstream code won't know about the error
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Integration Patterns
+
+### React Error Boundary
+
+```javascript
+import { Component } from "react";
+import { captureException } from "vij-sdk";
+
+class ErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      route: window.location.pathname
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <h1>Something went wrong.</h1>;
+    }
+    return this.props.children;
+  }
+}
+```
+
+### Vue Error Handler
+
+```javascript
+import { createApp } from "vue";
+import { captureException } from "vij-sdk";
+
+const app = createApp(App);
+
+app.config.errorHandler = (err, instance, info) => {
+  captureException(err, {
+    componentName: instance?.$options?.name,
+    errorInfo: info,
+    route: window.location.pathname
+  });
+};
+
+app.mount("#app");
+```
+
+### Express Error Middleware
+
+```javascript
+import express from "express";
+import { captureException } from "vij-sdk";
+
+const app = express();
+
+// Routes...
+
+// Error handling middleware (must be last)
+app.use((err, req, res, next) => {
+  captureException(err, {
+    url: req.originalUrl,
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    params: req.params,
+    query: req.query,
+    userId: req.user?.id
+  });
+
+  res.status(500).json({ error: "Internal server error" });
+});
+```
+
+### Async/Await Error Handling
+
+```javascript
+import { captureException } from "vij-sdk";
+
+async function fetchUserData(userId) {
+  try {
+    const response = await fetch(`/api/users/${userId}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    captureException(error, {
+      operation: "fetchUserData",
+      userId,
+      timestamp: new Date().toISOString()
+    });
+
+    throw error;
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Errors not appearing in dashboard">
+    **Check the following**:
+    1. Verify `init()` was called before `captureException()`
+    2. Check browser console/server logs for network errors
+    3. Ensure VIJ Admin endpoint is accessible
+    4. Verify batching settings aren't delaying delivery too long
+    5. Check that error object has `name`, `message`, and `stack` properties
+
+    **Debug**: Disable batching for immediate delivery
+    ```javascript
+    init({ batch: false, /* ... */ });
+    ```
+  </Accordion>
+
+  <Accordion title="Duplicate errors appearing">
+    **Cause**: Same error being captured multiple times
+
+    **Solutions**:
+    - Check if error is being captured in both automatic handlers and manual try/catch
+    - Implement deduplication logic for recurring errors
+    - Use error grouping features in VIJ Admin dashboard
+
+    [Learn more about error grouping →](/advanced/error-grouping)
+  </Accordion>
+
+  <Accordion title="Metadata not appearing">
+    **Issue**: Custom metadata not showing in dashboard
+
+    **Solution**: Ensure metadata is JSON-serializable
+    ```javascript
+    // Bad - circular reference
+    const obj = { name: "test" };
+    obj.self = obj;
+    captureException(error, { obj }); // Will fail
+
+    // Good
+    captureException(error, { name: "test", id: 123 });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Configuration" icon="sliders" href="/sdk/configuration">
+    Learn about all available SDK configuration options
+  </Card>
+  <Card title="API Reference" icon="code" href="/sdk/api-reference">
+    Explore the complete SDK API documentation
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Understand how VIJ groups similar errors
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore VIJ Admin dashboard features
+  </Card>
+</CardGroup>

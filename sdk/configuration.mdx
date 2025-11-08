@@ -1,0 +1,570 @@
+---
+title: "SDK Configuration"
+description: "Comprehensive guide to configuring vij-sdk with all available options"
+---
+
+The vij-sdk provides extensive configuration options to customize error tracking behavior, batching, and metadata collection for your specific use case.
+
+## Configuration Options
+
+All configuration is passed to the `init()` function as an `InitOptions` object.
+
+### Basic Configuration
+
+<ParamField path="endpoint" type="string" required>
+The URL of your VIJ Admin API endpoint where logs will be sent.
+
+**Format**: Must be a complete URL including protocol and path.
+
+**Example**: `https://your-vij-admin.com/api/logs`
+
+<Warning>
+Ensure this endpoint is accessible from your application environment. Check CORS settings if running in a browser.
+</Warning>
+</ParamField>
+
+<ParamField path="appId" type="string" required>
+Unique identifier for your application. Used to distinguish logs from different apps in the dashboard.
+
+**Best Practices**:
+- Use descriptive names like `frontend-web`, `backend-api`, or `mobile-app`
+- Keep it consistent across deployments
+- Use different IDs for frontend and backend to track them separately
+
+**Example**: `my-react-app`, `payment-service`, `admin-dashboard`
+</ParamField>
+
+<ParamField path="environment" type="string" required>
+The deployment environment where your application is running.
+
+**Common Values**: `production`, `staging`, `development`, `test`
+
+**Usage**: Helps filter logs by environment in the dashboard and prevents development errors from polluting production logs.
+
+<Tip>
+Use `process.env.NODE_ENV` in Node.js or define environment-specific variables to automatically set this value.
+</Tip>
+</ParamField>
+
+### Batching Configuration
+
+Batching reduces network overhead by sending multiple logs in a single request.
+
+<ParamField path="batch" type="boolean" default="true">
+Enable or disable batching of error logs.
+
+**When `true`**: Logs are queued and sent in batches according to `maxBatchSize` and `flushIntervalMs`.
+
+**When `false`**: Each log is sent immediately in a separate request.
+
+<Note>
+Batching is recommended for production to reduce network requests and improve performance.
+</Note>
+
+```javascript
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-app",
+  environment: "production",
+  batch: false // Disable batching for immediate delivery
+});
+```
+</ParamField>
+
+<ParamField path="maxBatchSize" type="number" default="10">
+Maximum number of logs to accumulate before automatically flushing the batch.
+
+**Range**: `1` to `100` (recommended: `10-50`)
+
+**Behavior**: When the queue reaches this size, logs are immediately sent regardless of `flushIntervalMs`.
+
+**Use Cases**:
+- **High-traffic apps**: Use larger batch sizes (`30-50`) to reduce request frequency
+- **Low-traffic apps**: Use smaller batch sizes (`5-10`) for faster delivery
+- **Critical errors**: Use smaller batches or disable batching for immediate alerts
+
+```javascript
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "high-traffic-app",
+  environment: "production",
+  batch: true,
+  maxBatchSize: 50 // Send up to 50 logs per request
+});
+```
+</ParamField>
+
+<ParamField path="flushIntervalMs" type="number" default="5000">
+Time interval in milliseconds to automatically flush the batch queue.
+
+**Range**: `1000` (1 second) to `60000` (1 minute)
+
+**Default**: `5000` (5 seconds)
+
+**Behavior**: Logs are sent when either `maxBatchSize` is reached OR this interval expires, whichever comes first.
+
+**Considerations**:
+- **Shorter intervals** (`1000-3000ms`): Near real-time delivery, more network requests
+- **Longer intervals** (`10000-30000ms`): Reduced network overhead, delayed visibility
+
+```javascript
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-app",
+  environment: "production",
+  batch: true,
+  flushIntervalMs: 10000 // Flush every 10 seconds
+});
+```
+
+<Tip>
+Balance between real-time visibility and network efficiency. For most applications, `5000ms` (5 seconds) is optimal.
+</Tip>
+</ParamField>
+
+<ParamField path="maxQueueSize" type="number" default="100">
+Maximum number of logs to store in the queue before dropping old logs.
+
+**Range**: `10` to `1000`
+
+**Behavior**: When the queue exceeds this size, the oldest logs are discarded to prevent memory issues.
+
+**Use Cases**:
+- **Normal apps**: Default `100` is sufficient
+- **High-error-rate apps**: Increase to `500-1000` to avoid dropping logs
+- **Memory-constrained environments**: Reduce to `50` or lower
+
+```javascript
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-app",
+  environment: "production",
+  batch: true,
+  maxQueueSize: 500 // Store up to 500 logs before dropping
+});
+```
+
+<Warning>
+If logs are being dropped, you'll see console warnings. Consider increasing `maxQueueSize` or reducing `flushIntervalMs`.
+</Warning>
+</ParamField>
+
+### Metadata Configuration
+
+<ParamField path="metadata" type="object" default="{}">
+Custom metadata to attach to every log entry automatically.
+
+**Use Cases**:
+- Add user information (user ID, email, role)
+- Include deployment details (version, build number, commit SHA)
+- Attach infrastructure context (server ID, region, cluster)
+
+**Type**: Any JSON-serializable object
+
+```javascript
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-app",
+  environment: "production",
+  metadata: {
+    appVersion: "2.1.0",
+    buildNumber: "1234",
+    commitSha: "abc123def456",
+    serverRegion: "us-east-1"
+  }
+});
+```
+
+<Tip>
+Use global metadata for application-wide context. Use per-error metadata (passed to `captureException()`) for event-specific details.
+</Tip>
+
+**Merging Behavior**: Global metadata is merged with per-error metadata. Per-error metadata takes precedence on conflicts.
+
+```javascript
+// Global metadata
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-app",
+  environment: "production",
+  metadata: { userId: "default-user", version: "1.0.0" }
+});
+
+// Per-error metadata
+captureException(error, { userId: "user-123", feature: "checkout" });
+
+// Resulting metadata:
+// { userId: "user-123", version: "1.0.0", feature: "checkout" }
+```
+</ParamField>
+
+## Configuration Examples
+
+### Browser Application (React)
+
+```javascript main.jsx
+import { init } from "vij-sdk";
+
+init({
+  endpoint: process.env.VITE_VIJ_ENDPOINT || "https://vij.example.com/api/logs",
+  appId: "my-react-app",
+  environment: import.meta.env.MODE, // "development" or "production"
+  batch: true,
+  maxBatchSize: 20,
+  flushIntervalMs: 5000,
+  maxQueueSize: 100,
+  metadata: {
+    appVersion: process.env.VITE_APP_VERSION,
+    buildTime: process.env.VITE_BUILD_TIMESTAMP
+  }
+});
+```
+
+### Node.js Backend (Express)
+
+```javascript server.js
+import { init } from "vij-sdk";
+
+init({
+  endpoint: process.env.VIJ_ENDPOINT,
+  appId: "api-server",
+  environment: process.env.NODE_ENV || "development",
+  batch: true,
+  maxBatchSize: 50, // Higher for backend
+  flushIntervalMs: 3000, // Faster flushing
+  maxQueueSize: 500,
+  metadata: {
+    nodeVersion: process.version,
+    serverHostname: os.hostname(),
+    serverPid: process.pid
+  }
+});
+```
+
+### Next.js Application
+
+```javascript lib/vij.js
+"use client";
+import { init } from "vij-sdk";
+
+if (typeof window !== "undefined") {
+  init({
+    endpoint: process.env.NEXT_PUBLIC_VIJ_ENDPOINT,
+    appId: "my-nextjs-app",
+    environment: process.env.NODE_ENV,
+    batch: true,
+    maxBatchSize: 15,
+    flushIntervalMs: 5000,
+    metadata: {
+      nextVersion: "14.0.0",
+      deploymentUrl: process.env.NEXT_PUBLIC_VERCEL_URL
+    }
+  });
+}
+```
+
+### Production-Optimized Configuration
+
+```javascript
+import { init } from "vij-sdk";
+
+init({
+  endpoint: "https://vij-admin.production.com/api/logs",
+  appId: "production-app",
+  environment: "production",
+
+  // Aggressive batching for production
+  batch: true,
+  maxBatchSize: 50,
+  flushIntervalMs: 10000, // 10 seconds
+  maxQueueSize: 1000,
+
+  // Rich metadata for debugging
+  metadata: {
+    version: "3.2.1",
+    commit: process.env.GIT_COMMIT,
+    buildTime: process.env.BUILD_TIME,
+    deployedBy: process.env.DEPLOYED_BY,
+    region: process.env.AWS_REGION,
+    instance: process.env.INSTANCE_ID
+  }
+});
+```
+
+### Development Configuration
+
+```javascript
+import { init } from "vij-sdk";
+
+init({
+  endpoint: "http://localhost:3000/api/logs",
+  appId: "dev-app",
+  environment: "development",
+
+  // Fast delivery for development
+  batch: true,
+  maxBatchSize: 5,
+  flushIntervalMs: 1000, // 1 second for quick feedback
+  maxQueueSize: 50,
+
+  metadata: {
+    developer: "john-doe",
+    branch: "feature/new-checkout"
+  }
+});
+```
+
+## Environment-Specific Configuration
+
+Use environment variables to configure VIJ for different deployment targets:
+
+<Tabs>
+  <Tab title="Vite (.env)">
+    ```bash .env.production
+    VITE_VIJ_ENDPOINT=https://vij.example.com/api/logs
+    VITE_APP_ID=my-app-production
+    VITE_APP_VERSION=2.1.0
+    ```
+
+    ```bash .env.development
+    VITE_VIJ_ENDPOINT=http://localhost:3000/api/logs
+    VITE_APP_ID=my-app-dev
+    VITE_APP_VERSION=dev
+    ```
+
+    ```javascript main.jsx
+    import { init } from "vij-sdk";
+
+    init({
+      endpoint: import.meta.env.VITE_VIJ_ENDPOINT,
+      appId: import.meta.env.VITE_APP_ID,
+      environment: import.meta.env.MODE,
+      metadata: {
+        version: import.meta.env.VITE_APP_VERSION
+      }
+    });
+    ```
+  </Tab>
+
+  <Tab title="Next.js (.env.local)">
+    ```bash .env.local
+    NEXT_PUBLIC_VIJ_ENDPOINT=https://vij.example.com/api/logs
+    NEXT_PUBLIC_APP_ID=my-nextjs-app
+    ```
+
+    ```javascript lib/vij.js
+    import { init } from "vij-sdk";
+
+    init({
+      endpoint: process.env.NEXT_PUBLIC_VIJ_ENDPOINT,
+      appId: process.env.NEXT_PUBLIC_APP_ID,
+      environment: process.env.NODE_ENV
+    });
+    ```
+  </Tab>
+
+  <Tab title="Node.js (.env)">
+    ```bash .env
+    VIJ_ENDPOINT=https://vij.example.com/api/logs
+    APP_ID=backend-api
+    NODE_ENV=production
+    ```
+
+    ```javascript server.js
+    import "dotenv/config";
+    import { init } from "vij-sdk";
+
+    init({
+      endpoint: process.env.VIJ_ENDPOINT,
+      appId: process.env.APP_ID,
+      environment: process.env.NODE_ENV
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## TypeScript Configuration
+
+Full type safety with TypeScript:
+
+```typescript
+import { init, type InitOptions } from "vij-sdk";
+
+const config: InitOptions = {
+  endpoint: process.env.VIJ_ENDPOINT!,
+  appId: "my-ts-app",
+  environment: process.env.NODE_ENV as "production" | "development",
+  batch: true,
+  maxBatchSize: 20,
+  flushIntervalMs: 5000,
+  maxQueueSize: 100,
+  metadata: {
+    version: "1.0.0",
+    buildNumber: 123
+  }
+};
+
+init(config);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use environment variables for sensitive configuration">
+    Never hardcode endpoints or app IDs. Use environment variables to:
+    - Keep configuration separate from code
+    - Enable different configs per environment
+    - Avoid committing sensitive URLs to version control
+
+    ```javascript
+    // Good
+    init({
+      endpoint: process.env.VIJ_ENDPOINT,
+      appId: process.env.APP_ID,
+      environment: process.env.NODE_ENV
+    });
+
+    // Bad
+    init({
+      endpoint: "https://my-secret-vij.com/api/logs",
+      appId: "hardcoded-app-id",
+      environment: "production"
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Tune batching based on error rate">
+    **Low error rate** (< 10 errors/minute):
+    - `maxBatchSize: 5-10`
+    - `flushIntervalMs: 3000-5000`
+
+    **Medium error rate** (10-100 errors/minute):
+    - `maxBatchSize: 20-30`
+    - `flushIntervalMs: 5000-10000`
+
+    **High error rate** (> 100 errors/minute):
+    - `maxBatchSize: 50-100`
+    - `flushIntervalMs: 10000-30000`
+    - `maxQueueSize: 500-1000`
+  </Accordion>
+
+  <Accordion title="Add rich metadata for better debugging">
+    Include version information, deployment details, and infrastructure context:
+
+    ```javascript
+    init({
+      // ... other config
+      metadata: {
+        // Version tracking
+        appVersion: "2.1.0",
+        commitSha: process.env.GIT_COMMIT,
+        buildNumber: process.env.BUILD_NUMBER,
+
+        // Infrastructure
+        region: process.env.AWS_REGION,
+        instanceId: process.env.INSTANCE_ID,
+
+        // Runtime
+        nodeVersion: process.version,
+        platform: process.platform
+      }
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Use different appIds for different parts of your system">
+    Separate frontend and backend logs for easier filtering:
+
+    ```javascript
+    // Frontend
+    init({ appId: "my-app-web", ... });
+
+    // Backend API
+    init({ appId: "my-app-api", ... });
+
+    // Background workers
+    init({ appId: "my-app-workers", ... });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Logs not appearing in dashboard">
+    **Check the following**:
+    1. Verify `endpoint` is accessible (try opening in browser)
+    2. Check browser console/server logs for network errors
+    3. Ensure VIJ Admin is running and MongoDB is connected
+    4. Verify CORS allows requests from your domain
+    5. Check that `batch` settings aren't delaying delivery too long
+
+    **Debug by disabling batching**:
+    ```javascript
+    init({
+      // ... other config
+      batch: false // Send immediately for testing
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Queue overflow warnings">
+    **Warning**: `VIJ: Queue overflow, dropping oldest log`
+
+    **Cause**: Error rate exceeds queue capacity
+
+    **Solutions**:
+    - Increase `maxQueueSize` to handle bursts
+    - Decrease `flushIntervalMs` for faster flushing
+    - Increase `maxBatchSize` to send more logs per request
+    - Investigate why error rate is so high
+
+    ```javascript
+    init({
+      // ... other config
+      maxQueueSize: 500, // Increase capacity
+      flushIntervalMs: 3000, // Flush faster
+      maxBatchSize: 50 // Send larger batches
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="TypeScript type errors">
+    **Issue**: Type errors with `metadata` or configuration
+
+    **Solution**: Ensure you're using the exported types
+
+    ```typescript
+    import { init, type InitOptions } from "vij-sdk";
+
+    const config: InitOptions = {
+      endpoint: "...",
+      appId: "...",
+      environment: "production",
+      metadata: {
+        // Metadata is Record<string, any>
+        customField: "value"
+      }
+    };
+
+    init(config);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Capturing Errors" icon="bug" href="/sdk/capturing-errors">
+    Learn how to capture exceptions and messages with the SDK
+  </Card>
+  <Card title="API Reference" icon="code" href="/sdk/api-reference">
+    Explore the complete SDK API documentation
+  </Card>
+  <Card title="Dashboard Setup" icon="gauge" href="/dashboard/setup">
+    Set up your VIJ Admin dashboard
+  </Card>
+  <Card title="Environment Variables" icon="key" href="/dashboard/environment-variables">
+    Configure VIJ Admin environment variables
+  </Card>
+</CardGroup>

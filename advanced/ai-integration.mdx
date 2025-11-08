@@ -1,0 +1,677 @@
+---
+title: "AI Integration"
+description: "Enable and configure AI-powered error analysis with Google Gemini"
+---
+
+VIJ integrates with Google Gemini to provide intelligent error analysis, root cause suggestions, and automated fix recommendations.
+
+## Overview
+
+AI-powered features in VIJ include:
+
+<CardGroup cols={2}>
+  <Card title="Error Summaries" icon="file-lines">
+    Concise, human-readable explanations of what went wrong
+  </Card>
+  <Card title="Root Cause Analysis" icon="magnifying-glass">
+    Intelligent analysis of why the error occurred
+  </Card>
+  <Card title="Fix Suggestions" icon="wrench">
+    Actionable recommendations to resolve the issue
+  </Card>
+  <Card title="Pattern Detection" icon="brain">
+    Identify recurring patterns across error groups
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+<Steps>
+  <Step title="Get a Gemini API key">
+    1. Visit [Google AI Studio](https://ai.google.dev)
+    2. Sign in with your Google account
+    3. Click **Get API Key**
+    4. Create a new API key
+    5. Copy the key (starts with `AIza...`)
+
+    <Tip>
+    Google Gemini offers a generous free tier with 60 requests per minute. Most VIJ installations stay within free limits.
+    </Tip>
+  </Step>
+
+  <Step title="Configure VIJ Admin">
+    Add the API key to your `.env.local` file:
+
+    ```bash .env.local
+    GEMINI_API_KEY=AIzaSyC1234567890abcdefghijklmnopqrstuv
+    ```
+
+    <Note>
+    No code changes required. VIJ automatically detects the API key and enables AI features.
+    </Note>
+  </Step>
+
+  <Step title="Restart the application">
+    ```bash
+    npm run dev
+    ```
+
+    <Check>
+    AI features are now enabled! Click any error in the dashboard to see AI analysis.
+    </Check>
+  </Step>
+
+  <Step title="Verify AI is working">
+    1. Navigate to any error detail page
+    2. Look for the "AI Analysis" section
+    3. You should see:
+       - AI Summary
+       - Possible Cause
+       - Suggested Fix
+
+    <Note>
+    AI analysis may take 2-5 seconds on first load. Results are cached for performance.
+    </Note>
+  </Step>
+</Steps>
+
+## AI Features in Detail
+
+### AI Summary
+
+A concise explanation of the error in plain language.
+
+**Example**:
+```
+Error Summary:
+The application attempted to access a property on an undefined object.
+This occurred during payment processing when trying to read the 'amount'
+property from a payment object that was not properly initialized.
+```
+
+**How it works**:
+1. VIJ sends error message, stack trace, and context to Gemini
+2. Gemini analyzes the error
+3. Returns a human-readable summary
+4. Summary is cached in MongoDB for 7 days
+
+### Possible Cause
+
+Root cause analysis explaining why the error occurred.
+
+**Example**:
+```
+Possible Cause:
+The payment object is likely undefined or null because:
+1. The API request to fetch payment details failed silently
+2. The user session expired before completing checkout
+3. The payment gateway returned an invalid response
+4. Missing error handling in the payment service
+```
+
+**Analysis includes**:
+- Technical reasons for the error
+- Common scenarios that trigger this error
+- Dependencies or external factors
+- Code-level explanations
+
+### Suggested Fix
+
+Actionable recommendations to resolve the error.
+
+**Example**:
+```
+Suggested Fix:
+1. Add null check before accessing payment.amount:
+   if (!payment || !payment.amount) {
+     throw new Error('Invalid payment object');
+   }
+
+2. Implement proper error handling for payment API:
+   try {
+     const payment = await fetchPayment(orderId);
+   } catch (error) {
+     logger.error('Payment fetch failed', error);
+     return handlePaymentError();
+   }
+
+3. Add validation at the service layer:
+   function validatePayment(payment) {
+     if (!payment || typeof payment.amount !== 'number') {
+       throw new ValidationError('Invalid payment');
+     }
+   }
+
+4. Consider adding timeout handling:
+   const payment = await fetchPayment(orderId, { timeout: 5000 });
+```
+
+**Suggestions include**:
+- Code examples
+- Best practices
+- Error handling improvements
+- Validation techniques
+
+## AI Analysis Workflow
+
+```mermaid
+graph TD
+    A[User clicks error] --> B[Check cache]
+    B -->|Cache hit| C[Display cached analysis]
+    B -->|Cache miss| D[Send to Gemini API]
+    D --> E[Generate analysis]
+    E --> F[Cache result]
+    F --> G[Display analysis]
+```
+
+### Caching Strategy
+
+AI analysis is cached to reduce API calls and improve performance:
+
+- **Cache duration**: 7 days
+- **Cache key**: Error fingerprint + Gemini model version
+- **Cache invalidation**: Manual or on model update
+
+**Benefits**:
+- Faster load times for repeated errors
+- Reduced API costs
+- Offline access to previous analysis
+
+## Customizing AI Prompts
+
+Customize how VIJ queries Gemini for better results.
+
+### Custom Prompt Template
+
+Edit `lib/gemini.ts` to customize prompts:
+
+```typescript lib/gemini.ts
+const prompt = `
+You are an expert software engineer analyzing a production error.
+
+Error Details:
+- Name: ${error.name}
+- Message: ${error.message}
+- Stack Trace:
+${error.stack}
+
+Application Context:
+- App: ${error.appId}
+- Environment: ${error.environment}
+- Metadata: ${JSON.stringify(error.metadata, null, 2)}
+
+Please provide:
+1. A concise summary of what went wrong
+2. Possible root causes (prioritize most likely)
+3. Specific, actionable fix suggestions with code examples
+4. Preventive measures for the future
+
+Format your response as JSON:
+{
+  "summary": "...",
+  "possibleCause": "...",
+  "suggestedFix": "...",
+  "preventiveMeasures": "..."
+}
+`;
+```
+
+### Domain-Specific Prompts
+
+Add custom context for your application:
+
+```typescript
+const customContext = `
+This is a Next.js e-commerce application using:
+- React 18
+- Next.js 14
+- Stripe for payments
+- MongoDB for data
+- TypeScript
+
+Common patterns in our codebase:
+- API routes in /app/api
+- Server actions for mutations
+- React Query for data fetching
+- Zod for validation
+`;
+
+const enhancedPrompt = `${basePrompt}\n\nApplication Context:\n${customContext}`;
+```
+
+### Few-Shot Learning
+
+Provide examples to improve AI responses:
+
+```typescript
+const examples = `
+Example 1:
+Error: "Cannot read property 'map' of undefined"
+Good Response: "The data array is undefined. Add null check:
+  {data?.map(item => ...)} or ensure data is initialized."
+
+Example 2:
+Error: "Maximum update depth exceeded"
+Good Response: "Infinite render loop detected. Move state updates
+  outside render or use useEffect with proper dependencies."
+`;
+
+const promptWithExamples = `${basePrompt}\n\nExamples:\n${examples}`;
+```
+
+## AI Model Configuration
+
+### Model Selection
+
+VIJ uses Gemini 1.5 Flash by default. You can configure different models:
+
+```typescript lib/gemini.ts
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+// Fast, cost-effective (default)
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+// Or use Pro for better quality
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+```
+
+**Model Comparison**:
+
+| Model | Speed | Quality | Cost | Best For |
+|-------|-------|---------|------|----------|
+| Gemini 1.5 Flash | Very Fast | Good | Low | High-volume analysis |
+| Gemini 1.5 Pro | Fast | Excellent | Medium | Complex errors |
+| Gemini 1.0 Pro | Medium | Good | Low | Simple errors |
+
+### Model Parameters
+
+Fine-tune generation parameters:
+
+```typescript
+const generationConfig = {
+  temperature: 0.7,           // Creativity (0-2)
+  topK: 40,                  // Vocabulary diversity
+  topP: 0.95,                // Cumulative probability
+  maxOutputTokens: 2048,     // Response length
+  candidateCount: 1          // Number of responses
+};
+
+const result = await model.generateContent({
+  contents: [{ role: "user", parts: [{ text: prompt }] }],
+  generationConfig
+});
+```
+
+**Parameter Guide**:
+- **Temperature**: Higher = more creative, lower = more focused
+  - Use `0.3-0.5` for technical analysis
+  - Use `0.7-0.9` for suggestions
+- **maxOutputTokens**: Control response length
+  - Use `1024` for summaries
+  - Use `2048` for detailed analysis
+
+## Advanced AI Features
+
+### Context-Aware Analysis
+
+Include relevant context for better analysis:
+
+```typescript
+async function analyzeError(error: ErrorLog) {
+  // Gather additional context
+  const relatedErrors = await findSimilarErrors(error.fingerprint, 10);
+  const recentChanges = await getRecentCodeChanges(error.timestamp);
+  const systemMetrics = await getSystemMetrics(error.timestamp);
+
+  const enhancedPrompt = `
+    ${basePrompt}
+
+    Related Errors (last 24h): ${relatedErrors.length}
+    Recent Code Changes:
+    ${recentChanges.map(c => `- ${c.commit}: ${c.message}`).join('\n')}
+
+    System Metrics at time of error:
+    - CPU: ${systemMetrics.cpu}%
+    - Memory: ${systemMetrics.memory}%
+    - Response Time: ${systemMetrics.responseTime}ms
+  `;
+
+  return await generateAIAnalysis(enhancedPrompt);
+}
+```
+
+### Multi-Step Analysis
+
+Perform deeper analysis with multiple AI calls:
+
+```typescript
+async function deepAnalysis(error: ErrorLog) {
+  // Step 1: Initial analysis
+  const initial = await analyzeError(error);
+
+  // Step 2: Root cause deep dive
+  const rootCause = await model.generateContent(`
+    Based on this error analysis:
+    ${initial.summary}
+
+    Perform a deep technical analysis of the root cause.
+    Consider:
+    - Memory leaks
+    - Race conditions
+    - Async/await issues
+    - Third-party library bugs
+  `);
+
+  // Step 3: Generate test cases
+  const tests = await model.generateContent(`
+    Generate unit tests to reproduce this error:
+    ${error.message}
+    ${error.stack}
+  `);
+
+  return {
+    summary: initial.summary,
+    rootCause: rootCause.text(),
+    suggestedTests: tests.text()
+  };
+}
+```
+
+### Batch Analysis
+
+Analyze multiple errors together for pattern detection:
+
+```typescript
+async function batchAnalysis(errors: ErrorLog[]) {
+  const errorSummaries = errors.map(e => ({
+    message: e.message,
+    count: e.count,
+    firstSeen: e.firstSeen
+  }));
+
+  const prompt = `
+    Analyze these ${errors.length} related errors and identify:
+    1. Common patterns
+    2. Underlying issues
+    3. Priority order for fixes
+    4. Potential systemic problems
+
+    Errors:
+    ${JSON.stringify(errorSummaries, null, 2)}
+  `;
+
+  return await model.generateContent(prompt);
+}
+```
+
+## API Usage and Costs
+
+### Rate Limits
+
+Google Gemini free tier limits:
+
+- **Requests per minute**: 60
+- **Requests per day**: 1,500
+- **Tokens per minute**: 32,000
+
+VIJ automatically handles rate limiting:
+
+```typescript
+// Rate limiter implementation
+const rateLimiter = new RateLimiter({
+  maxRequests: 60,
+  windowMs: 60000  // 1 minute
+});
+
+await rateLimiter.acquire();
+const result = await model.generateContent(prompt);
+```
+
+### Cost Estimation
+
+**Gemini 1.5 Flash** (free tier):
+- Input: Free up to 1M tokens/day
+- Output: Free up to 1M tokens/day
+
+**Typical VIJ usage**:
+- Per error analysis: ~1,500 tokens
+- Daily budget: ~666 error analyses
+- Monthly cost: $0 (within free tier)
+
+**Paid tier** (if needed):
+- Input: $0.075 per 1M tokens
+- Output: $0.30 per 1M tokens
+- 10,000 errors/month: ~$5-10
+
+### Monitoring Usage
+
+Track API usage in VIJ Admin:
+
+```typescript
+// Log API usage
+interface AIUsageStats {
+  date: Date;
+  requestCount: number;
+  tokensUsed: number;
+  cacheHits: number;
+  cacheMisses: number;
+}
+
+// Dashboard endpoint
+GET /api/ai/usage
+```
+
+## Error Handling
+
+Handle AI failures gracefully:
+
+```typescript
+async function safeAIAnalysis(error: ErrorLog) {
+  try {
+    return await generateAIAnalysis(error);
+  } catch (aiError) {
+    if (aiError.code === 'RATE_LIMIT') {
+      return {
+        summary: "AI analysis temporarily unavailable (rate limit)",
+        possibleCause: "Too many requests",
+        suggestedFix: "Please try again in a few minutes"
+      };
+    }
+
+    if (aiError.code === 'INVALID_API_KEY') {
+      return {
+        summary: "AI features not configured",
+        possibleCause: "Invalid or missing GEMINI_API_KEY",
+        suggestedFix: "Configure GEMINI_API_KEY environment variable"
+      };
+    }
+
+    // Fallback to basic analysis
+    return {
+      summary: error.message,
+      possibleCause: "Analysis not available",
+      suggestedFix: "Review stack trace manually"
+    };
+  }
+}
+```
+
+## Privacy and Security
+
+### Data Privacy
+
+VIJ sends only error information to Gemini:
+- Error name, message, stack trace
+- Application metadata (appId, environment)
+- User-provided metadata
+
+**Not sent**:
+- User PII (unless in metadata)
+- Authentication tokens
+- Database contents
+- Source code (unless in stack trace)
+
+### Opt-Out
+
+Disable AI features without affecting core functionality:
+
+```bash
+# Remove API key
+GEMINI_API_KEY=
+
+# Or set to empty
+GEMINI_API_KEY=""
+```
+
+UI automatically hides AI sections when disabled.
+
+### Data Retention
+
+Control how long AI responses are cached:
+
+```typescript
+// Reduce cache duration
+const AI_CACHE_TTL = 24 * 60 * 60; // 1 day instead of 7
+
+// Disable caching
+const AI_CACHE_ENABLED = false;
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="AI analysis not appearing">
+    **Check**:
+    1. `GEMINI_API_KEY` is set in `.env.local`
+    2. API key is valid (starts with `AIza`)
+    3. Restart dev server after adding key
+    4. Check browser console for errors
+    5. Verify Gemini API quota
+
+    **Test API key**:
+    ```bash
+    curl "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=YOUR_KEY" \
+      -H 'Content-Type: application/json' \
+      -d '{"contents":[{"parts":[{"text":"test"}]}]}'
+    ```
+  </Accordion>
+
+  <Accordion title="Rate limit errors">
+    **Error**: `429 Too Many Requests`
+
+    **Solutions**:
+    - Increase cache duration to reduce API calls
+    - Upgrade to paid tier for higher limits
+    - Implement request queuing
+    - Only analyze high-priority errors
+
+    ```typescript
+    // Selective AI analysis
+    if (error.severity === 'error' && error.count > 10) {
+      await generateAIAnalysis(error);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Poor quality responses">
+    **Issue**: AI suggestions are not helpful
+
+    **Improvements**:
+    1. Add more context to prompts
+    2. Use Gemini Pro instead of Flash
+    3. Include code snippets in context
+    4. Provide domain-specific information
+    5. Use few-shot examples
+
+    ```typescript
+    // Better prompting
+    const prompt = `
+      ${basePrompt}
+
+      Tech Stack: Next.js 14, React 18, TypeScript
+      Payment Provider: Stripe
+      Common Patterns: Server Actions, React Query
+
+      ${examples}
+    `;
+    ```
+  </Accordion>
+
+  <Accordion title="Slow AI responses">
+    **Issue**: Analysis takes too long
+
+    **Solutions**:
+    - Use Gemini Flash (fastest model)
+    - Reduce maxOutputTokens
+    - Enable caching
+    - Pre-generate analysis for common errors
+
+    ```typescript
+    // Faster configuration
+    const generationConfig = {
+      temperature: 0.3,
+      maxOutputTokens: 512,  // Shorter responses
+      candidateCount: 1
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Cache AI responses aggressively">
+    ```typescript
+    // Cache for 30 days for resolved errors
+    if (error.resolved) {
+      cacheAIResponse(error.fingerprint, analysis, 30 * 24 * 60 * 60);
+    } else {
+      cacheAIResponse(error.fingerprint, analysis, 7 * 24 * 60 * 60);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Provide rich context">
+    ```typescript
+    const context = {
+      techStack: ['Next.js', 'React', 'TypeScript'],
+      errorFrequency: error.count,
+      recentChanges: await getRecentCommits(),
+      similarErrors: await findSimilar(error.fingerprint)
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Monitor and optimize costs">
+    - Track API usage daily
+    - Set up billing alerts
+    - Cache common errors
+    - Use selective analysis
+  </Accordion>
+
+  <Accordion title="Validate AI responses">
+    - Don't blindly trust suggestions
+    - Review code examples
+    - Test suggested fixes
+    - Have humans verify critical fixes
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    View AI analysis in the dashboard
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Analyze grouped errors with AI
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/advanced/analytics">
+    Combine AI insights with analytics
+  </Card>
+  <Card title="Environment Variables" icon="key" href="/dashboard/environment-variables">
+    Configure Gemini API key
+  </Card>
+</CardGroup>

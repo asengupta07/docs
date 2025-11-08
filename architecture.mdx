@@ -1,0 +1,383 @@
+---
+title: "Architecture"
+description: "Understanding VIJ's architecture and how components work together"
+---
+
+VIJ follows a client-server architecture where the SDK captures errors in your applications and sends them to a centralized dashboard for storage, analysis, and visualization.
+
+## System Overview
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     Your Applications                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
+│  │   Browser   │  │   Node.js   │  │   Mobile    │          │
+│  │   (React)   │  │  (Express)  │  │   (Future)  │          │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
+│         │                │                │                   │
+│         └────────────────┴────────────────┘                   │
+│                          │                                    │
+│                    vij-sdk (error capture)                    │
+└──────────────────────────┼────────────────────────────────────┘
+                           │
+                           │ HTTPS POST /api/logs
+                           │ (batched payloads)
+                           │
+┌──────────────────────────▼────────────────────────────────────┐
+│                     VIJ Admin (Next.js)                       │
+│                                                                │
+│  ┌─────────────────┐  ┌──────────────────┐  ┌──────────────┐ │
+│  │   API Routes    │  │   AI Processing  │  │  Dashboard   │ │
+│  │                 │  │                  │  │      UI      │ │
+│  │ - /api/logs     │──│   Gemini 2.5     │  │              │ │
+│  │ - /api/stats    │  │   Flash Model    │  │ - Analytics  │ │
+│  │ - /api/groups   │  │                  │  │ - Filtering  │ │
+│  └────────┬────────┘  └────────┬─────────┘  │ - Search     │ │
+│           │                    │             └──────────────┘ │
+│           │                    │                               │
+│           └────────┬───────────┘                               │
+│                    │                                           │
+│              ┌─────▼──────┐                                    │
+│              │  MongoDB   │                                    │
+│              │            │                                    │
+│              │ - logs     │                                    │
+│              │ - groups   │                                    │
+│              │ - ai_cache │                                    │
+│              └────────────┘                                    │
+└────────────────────────────────────────────────────────────────┘
+```
+
+## Components
+
+### 1. vij-sdk (Client Library)
+
+The SDK is a lightweight JavaScript/TypeScript library that integrates into your applications.
+
+**Responsibilities:**
+- Capture uncaught errors and unhandled promise rejections
+- Collect rich contextual metadata
+- Queue and batch error payloads
+- Send data to VIJ Admin API
+- Provide manual error logging APIs
+
+**Key Features:**
+- **Environment Detection**: Automatically detects browser vs Node.js
+- **Batching**: Groups multiple errors into single requests
+- **Queue Management**: Bounded queue with FIFO dropping
+- **Reliable Transport**: Uses sendBeacon (browser) or fetch (Node.js)
+- **Zero Dependencies**: Minimal footprint (only tslib)
+
+**Implementation Details:**
+- Built with TypeScript for type safety
+- Rollup bundler produces ESM and CommonJS outputs
+- Platform-specific hooks for error capture
+- Separate context collectors for browser and Node.js
+
+[SDK Documentation →](/sdk/installation)
+
+### 2. VIJ Admin (Dashboard & API)
+
+The admin dashboard is a Next.js application that serves dual purposes: API server and visualization interface.
+
+**Responsibilities:**
+- Receive and validate error payloads
+- Store errors in MongoDB
+- Generate error fingerprints for grouping
+- Analyze errors with AI
+- Serve dashboard UI for visualization
+- Provide analytics and search APIs
+
+**Technology Stack:**
+- **Next.js 16** with App Router for server and client rendering
+- **MongoDB** with Mongoose ODM for data persistence
+- **Google Gemini AI** for intelligent error analysis
+- **Recharts** for data visualization
+- **SWR** for client-side data fetching and caching
+- **Tailwind CSS 4** for styling
+
+**API Endpoints:**
+- `POST /api/logs` - Ingest errors from SDK
+- `GET /api/logs` - Query logs with filtering
+- `GET /api/stats` - Get aggregated analytics
+- `GET /api/groups` - Get error groups
+
+[Dashboard Documentation →](/dashboard/setup)
+
+### 3. MongoDB (Data Layer)
+
+MongoDB stores all error data, grouped errors, and AI analysis cache.
+
+**Collections:**
+
+#### logs
+Primary collection for error events with full metadata.
+
+**Indexes:**
+- `appId`, `message`, `timestamp`, `severity`, `environment`, `fingerprint`, `groupId`, `tags`
+- `{ appId: 1, timestamp: -1 }` (compound)
+- Full-text search on `message`
+
+#### error_groups
+Aggregated error groups by fingerprint.
+
+**Indexes:**
+- `appId`, `fingerprint`, `tags`
+- `{ appId: 1, fingerprint: 1 }` (compound)
+
+#### ai_cache
+Cached AI analysis results.
+
+**Indexes:**
+- `{ appId: 1, fingerprint: 1 }` (compound, unique)
+
+[Learn about error grouping →](/advanced/error-grouping)
+
+## Data Flow
+
+### 1. Error Capture Flow
+
+```
+1. Error occurs in your app
+   ↓
+2. SDK hook catches error (browser: window.onerror, Node: process.on('uncaughtException'))
+   ↓
+3. SDK builds payload with error + metadata
+   ↓
+4. Payload added to queue
+   ↓
+5. Queue flushed when:
+   - Batch size reached (default: 20)
+   - Flush interval triggered (default: 3s)
+   - Page unload (browser only)
+   - Manual flush() called
+   ↓
+6. Sent to VIJ Admin via POST /api/logs
+```
+
+### 2. Ingestion & Processing Flow
+
+```
+1. VIJ Admin receives POST /api/logs
+   ↓
+2. Validate payload with Zod schemas
+   ↓
+3. Generate MD5 fingerprint from message + stack
+   ↓
+4. Upsert error group:
+   - Increment occurrence count
+   - Update lastSeen timestamp
+   - Add new tags
+   ↓
+5. For single logs (not batch):
+   - Check ai_cache for existing analysis
+   - If not found → call Gemini AI
+   - Cache AI response
+   - Attach to log document
+   ↓
+6. Insert log(s) into MongoDB
+   ↓
+7. Return success response
+```
+
+### 3. Dashboard Query Flow
+
+```
+1. User visits dashboard
+   ↓
+2. Server-side rendering fetches initial data from MongoDB
+   ↓
+3. Client hydrates with SWR
+   ↓
+4. SWR polls for updates every 5 seconds
+   ↓
+5. User applies filters → updates URL params
+   ↓
+6. SWR refetches with new filters
+   ↓
+7. Dashboard updates in real-time
+```
+
+## Key Design Patterns
+
+### Singleton Pattern (MongoDB Connection)
+
+MongoDB connection is cached globally to prevent connection leaks in Next.js development mode:
+
+```typescript
+// lib/mongodb.ts
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+export default async function connectDB() {
+  if (cached.conn) return cached.conn;
+  // ... connection logic
+}
+```
+
+### Fingerprinting for Error Grouping
+
+Errors are grouped using MD5 hashing:
+
+```typescript
+import crypto from "crypto";
+
+const fingerprint = crypto
+  .createHash("md5")
+  .update(message + (stack || ""))
+  .digest("hex");
+```
+
+This ensures identical errors are grouped together, reducing noise and showing occurrence patterns.
+
+### AI Response Caching
+
+AI analysis is expensive and slow. VIJ caches results by fingerprint:
+
+```typescript
+// Check cache first
+const cached = await AiCache.findOne({ appId, fingerprint });
+if (cached) return cached.ai;
+
+// Otherwise, call AI and cache
+const ai = await summarizeErrorStructured(...);
+await AiCache.findOneAndUpdate(
+  { appId, fingerprint },
+  { ai, updatedAt: new Date() },
+  { upsert: true }
+);
+```
+
+### Batching for Performance
+
+SDK batches multiple errors into single requests:
+
+```typescript
+// SDK transport logic
+if (queue.length >= maxBatchSize) {
+  flush(); // Send immediately
+} else {
+  // Wait for timer or manual flush
+}
+```
+
+This reduces network overhead and server load.
+
+### SWR for Real-time Updates
+
+Dashboard uses SWR with automatic revalidation:
+
+```typescript
+const { data } = useSWR('/api/logs', fetcher, {
+  refreshInterval: 5000, // Poll every 5s
+});
+```
+
+This keeps the dashboard updated without manual refreshes.
+
+## Security Considerations
+
+### CORS Configuration
+
+VIJ Admin allows all origins by default for ease of integration:
+
+```typescript
+headers: {
+  'Access-Control-Allow-Origin': '*'
+}
+```
+
+<Warning>
+In production, consider restricting CORS to your specific domains for added security.
+</Warning>
+
+### Input Validation
+
+All API endpoints use Zod for strict input validation:
+
+```typescript
+const logSchema = z.object({
+  appId: z.string().min(1),
+  message: z.string(),
+  // ...
+});
+
+const validated = logSchema.parse(body);
+```
+
+### Body Size Limits
+
+API routes enforce a 10KB body size limit to prevent DoS attacks:
+
+```typescript
+export const config = {
+  api: { bodyParser: { sizeLimit: '10kb' } }
+};
+```
+
+### No Authentication (Self-Hosted)
+
+VIJ Admin does not include built-in authentication, assuming:
+- You deploy it privately (not publicly accessible)
+- You add authentication middleware if needed
+- Your firewall/VPC provides network-level security
+
+<Tip>
+For production deployments, consider adding authentication using Next.js middleware or deploying behind a VPN.
+</Tip>
+
+## Scalability
+
+### Horizontal Scaling
+
+VIJ Admin can scale horizontally:
+- Deploy multiple Next.js instances behind a load balancer
+- MongoDB handles concurrent connections from all instances
+- No shared state between instances (stateless API)
+
+### Database Optimization
+
+MongoDB indexes ensure fast queries even with millions of logs:
+- Compound indexes for common filter combinations
+- Full-text search index for message queries
+- Covered queries when possible
+
+### AI Cost Optimization
+
+AI caching reduces Gemini API costs:
+- Only analyze each unique error once
+- Subsequent occurrences use cached analysis
+- No TTL on cache (errors rarely change)
+
+## Monitoring & Observability
+
+VIJ provides observability through:
+
+1. **Dashboard Analytics** - Error trends, severity distribution, top messages
+2. **Real-time Updates** - SWR polling keeps data fresh
+3. **Detailed Logs** - Full stack traces and metadata for debugging
+4. **Error Grouping** - See patterns and occurrence counts
+
+For monitoring VIJ itself, consider:
+- Next.js logs for API errors
+- MongoDB slow query logs
+- Gemini API usage metrics
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Configuration" icon="sliders" href="/sdk/configuration">
+    Learn how to configure the SDK for your needs
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore all dashboard features and capabilities
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Understand how VIJ groups and deduplicates errors
+  </Card>
+  <Card title="AI Integration" icon="brain" href="/advanced/ai-integration">
+    Set up AI-powered error analysis
+  </Card>
+</CardGroup>

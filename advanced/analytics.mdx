@@ -1,0 +1,668 @@
+---
+title: "Analytics and Visualization"
+description: "Analyze error trends, patterns, and insights with VIJ analytics"
+---
+
+VIJ provides comprehensive analytics and visualization tools to help you understand error patterns, track trends, and make data-driven decisions.
+
+## Dashboard Analytics
+
+The dashboard home provides key metrics and visualizations.
+
+### Overview Metrics
+
+<CardGroup cols={3}>
+  <Card title="Total Errors" icon="bug">
+    Total number of errors across all time periods
+  </Card>
+  <Card title="Error Rate" icon="chart-line">
+    Errors per hour/day trend over time
+  </Card>
+  <Card title="Unique Groups" icon="layer-group">
+    Number of distinct error groups
+  </Card>
+</CardGroup>
+
+### Key Metrics Explained
+
+#### Total Errors
+
+```
+Total Count: 15,247 errors
+Last 24 hours: 1,234 errors
+Previous 24 hours: 987 errors
+Change: +25% ↑
+```
+
+**Use Cases**:
+- Monitor overall application health
+- Identify error spikes
+- Track improvement over time
+
+#### Error Rate
+
+```
+Current Rate: 51 errors/hour
+Average Rate: 42 errors/hour
+Peak Rate: 127 errors/hour (at 2024-01-01 14:00)
+```
+
+**Alerts**:
+- Rate > 2x average: Warning
+- Rate > 5x average: Critical
+
+#### Active Error Groups
+
+```
+Total Groups: 347
+New (last 24h): 23
+Resolved: 12
+Active: 335
+```
+
+**Metrics**:
+- New groups indicate new bugs
+- Resolved groups show progress
+- Active groups need attention
+
+## Time-Series Visualizations
+
+### Error Trends Chart
+
+Interactive chart showing error frequency over time.
+
+**Features**:
+- Multiple time ranges (1h, 24h, 7d, 30d)
+- Severity breakdown (stacked)
+- Hover for details
+- Zoom and pan
+- Export as image
+
+**Data Structure**:
+```json
+{
+  "timestamp": "2024-01-01T12:00:00Z",
+  "errors": 45,
+  "warnings": 12,
+  "info": 3,
+  "total": 60
+}
+```
+
+<Frame>
+  <img src="/images/error-trends-chart-placeholder.png" alt="Error trends visualization" />
+</Frame>
+
+### Severity Distribution
+
+Pie chart showing error breakdown by severity.
+
+```json
+{
+  "error": 78.5%,    // 12,000 errors
+  "warning": 18.2%,  // 2,800 warnings
+  "info": 3.3%       // 500 info logs
+}
+```
+
+**Insights**:
+- High error percentage: Critical issues need attention
+- Balanced distribution: Good error handling
+- Low warning percentage: Under-reporting potential issues
+
+### Error Groups Over Time
+
+Track new vs. resolved error groups.
+
+```json
+{
+  "date": "2024-01-01",
+  "newGroups": 15,
+  "resolvedGroups": 8,
+  "activeGroups": 347
+}
+```
+
+**Health Indicator**:
+- `newGroups < resolvedGroups`: Improving ✓
+- `newGroups > resolvedGroups`: Degrading ✗
+- `newGroups ≈ resolvedGroups`: Stable ~
+
+## Application Analytics
+
+Per-application metrics and comparisons.
+
+### Application Comparison
+
+Compare error rates across applications:
+
+| Application | Errors | Rate | Change | Status |
+|-------------|--------|------|--------|--------|
+| frontend | 8,234 | 34/h | +12% | 🔴 |
+| backend-api | 5,123 | 21/h | -5% | 🟢 |
+| mobile-app | 1,890 | 8/h | +45% | 🔴 |
+
+**Insights**:
+- Mobile app error rate increased significantly
+- Backend API improving
+- Frontend needs attention
+
+### Environment Breakdown
+
+Error distribution by environment:
+
+```json
+{
+  "production": { "count": 12000, "percentage": 78.7% },
+  "staging": { "count": 2500, "percentage": 16.4% },
+  "development": { "count": 747, "percentage": 4.9% }
+}
+```
+
+**Expectations**:
+- Production should be lowest (well-tested code)
+- Staging catches most issues
+- Development has experimental code
+
+### Top Error-Prone Features
+
+Identify features with most errors:
+
+```json
+[
+  { "feature": "checkout", "errors": 3456, "percentage": 22.7% },
+  { "feature": "authentication", "errors": 2134, "percentage": 14.0% },
+  { "feature": "search", "errors": 1678, "percentage": 11.0% }
+]
+```
+
+**Actions**:
+- Prioritize fixing high-error features
+- Add more tests for error-prone areas
+- Review code quality
+
+## User Impact Analytics
+
+Understand how errors affect users.
+
+### Affected Users
+
+Track unique users impacted by errors:
+
+```json
+{
+  "totalUsers": 50000,
+  "affectedUsers": 2345,
+  "affectedPercentage": 4.69%,
+  "usersWithMultipleErrors": 456
+}
+```
+
+**Metrics**:
+- < 1% affected: Isolated issues
+- 1-5% affected: Moderate impact
+- > 5% affected: Widespread problem
+
+### User Journey Analysis
+
+See where errors occur in user flows:
+
+```
+Home → Product → Cart → Checkout → Payment
+100%   95%      92%     78%      45%  ← Completion rate
+
+Errors by step:
+1. Home: 234 errors (2%)
+2. Product: 567 errors (5%)
+3. Cart: 891 errors (8%)
+4. Checkout: 1234 errors (22%)  ← Problem area
+5. Payment: 2345 errors (55%)   ← Critical
+```
+
+**Insights**:
+- Checkout and payment have high error rates
+- Users drop off due to errors
+- Fix payment errors first (highest impact)
+
+### Error Recurrence
+
+Track how often users encounter the same error:
+
+```json
+{
+  "oneTime": 1500,      // 64% of users
+  "recurring": 845,     // 36% of users
+  "averageRecurrence": 2.3
+}
+```
+
+**High recurrence indicates**:
+- Persistent bugs not fixed
+- Poor error recovery
+- User frustration
+
+## Performance Analytics
+
+Correlate errors with performance metrics.
+
+### Error Rate vs. Response Time
+
+```json
+{
+  "timestamp": "2024-01-01T12:00:00Z",
+  "errorRate": 45,
+  "avgResponseTime": 1234,
+  "correlation": 0.78  // Strong correlation
+}
+```
+
+**Correlation values**:
+- > 0.7: Errors likely caused by performance issues
+- 0.3-0.7: Moderate correlation
+- < 0.3: Independent factors
+
+### Memory Usage Correlation
+
+```json
+{
+  "heapUsed": 850000000,  // 850 MB
+  "errorCount": 67,
+  "memoryThreshold": 900000000  // 900 MB threshold
+}
+```
+
+**Pattern detection**:
+- Errors spike when memory > 90% threshold
+- Likely memory leaks or OOM errors
+- Action: Optimize memory usage
+
+## Custom Analytics
+
+Create custom analytics dashboards.
+
+### Custom Metrics
+
+Define custom metrics to track:
+
+```typescript
+// Example: Track payment errors by gateway
+const paymentAnalytics = await db.logs.aggregate([
+  {
+    $match: {
+      "metadata.feature": "payment",
+      severity: "error"
+    }
+  },
+  {
+    $group: {
+      _id: "$metadata.paymentGateway",
+      count: { $sum: 1 },
+      avgResponseTime: { $avg: "$metadata.responseTime" }
+    }
+  },
+  {
+    $sort: { count: -1 }
+  }
+]);
+```
+
+**Result**:
+```json
+[
+  { "gateway": "stripe", "count": 234, "avgResponseTime": 1234 },
+  { "gateway": "paypal", "count": 123, "avgResponseTime": 2345 }
+]
+```
+
+### Funnels
+
+Track error rates through conversion funnels:
+
+```typescript
+const checkoutFunnel = [
+  { step: "cart", errors: 234, users: 10000 },
+  { step: "shipping", errors: 156, users: 9500 },
+  { step: "payment", errors: 890, users: 9200 },
+  { step: "confirmation", errors: 45, users: 8500 }
+];
+
+// Calculate error impact on conversion
+const errorImpact = checkoutFunnel.map(step => ({
+  step: step.step,
+  errorRate: (step.errors / step.users * 100).toFixed(2) + '%',
+  completionRate: ((step.users / checkoutFunnel[0].users) * 100).toFixed(2) + '%'
+}));
+```
+
+### Cohort Analysis
+
+Compare error rates across user cohorts:
+
+```typescript
+const cohortAnalysis = await db.logs.aggregate([
+  {
+    $match: { "metadata.userId": { $exists: true } }
+  },
+  {
+    $group: {
+      _id: {
+        cohort: "$metadata.userCohort",
+        severity: "$severity"
+      },
+      count: { $sum: 1 }
+    }
+  }
+]);
+```
+
+**Insights**:
+- New users encounter more errors (onboarding issues)
+- Power users have different error patterns
+- Mobile users vs. desktop users
+
+## Alerting and Monitoring
+
+Set up alerts based on analytics.
+
+### Threshold Alerts
+
+```typescript
+const alerts = [
+  {
+    name: "High Error Rate",
+    condition: "errorRate > 100/hour",
+    action: "Send email to team@example.com"
+  },
+  {
+    name: "New Critical Error",
+    condition: "newGroup && severity=error",
+    action: "Send Slack notification"
+  },
+  {
+    name: "Error Spike",
+    condition: "errorRate > 2x average (last 1h)",
+    action: "Create PagerDuty incident"
+  }
+];
+```
+
+### Anomaly Detection
+
+Detect unusual patterns:
+
+```typescript
+function detectAnomalies(errorRates: number[]) {
+  const mean = average(errorRates);
+  const stdDev = standardDeviation(errorRates);
+
+  return errorRates.map((rate, i) => {
+    const zScore = (rate - mean) / stdDev;
+    return {
+      timestamp: timestamps[i],
+      rate,
+      isAnomaly: Math.abs(zScore) > 3,  // 3 sigma rule
+      severity: Math.abs(zScore) > 5 ? 'critical' : 'warning'
+    };
+  });
+}
+```
+
+### Trend Analysis
+
+Predict future error rates:
+
+```typescript
+// Simple linear regression
+function predictErrorRate(historicalData: number[]): number {
+  const n = historicalData.length;
+  const xMean = (n - 1) / 2;
+  const yMean = average(historicalData);
+
+  let numerator = 0;
+  let denominator = 0;
+
+  historicalData.forEach((y, x) => {
+    numerator += (x - xMean) * (y - yMean);
+    denominator += (x - xMean) ** 2;
+  });
+
+  const slope = numerator / denominator;
+  const intercept = yMean - slope * xMean;
+
+  // Predict next value
+  return slope * n + intercept;
+}
+```
+
+## Export and Reporting
+
+Generate reports from analytics data.
+
+### Report Types
+
+<Tabs>
+  <Tab title="Daily Report">
+    **Email sent at 9 AM daily**
+
+    ```
+    VIJ Daily Report - 2024-01-01
+
+    Summary:
+    - Total Errors: 1,234 (+12% vs yesterday)
+    - New Error Groups: 15
+    - Resolved Groups: 8
+    - Top Error: "TypeError: Cannot read property 'map'"
+
+    Top Applications:
+    1. frontend: 567 errors
+    2. backend-api: 345 errors
+    3. mobile-app: 234 errors
+
+    Action Items:
+    - Fix checkout errors (234 occurrences)
+    - Investigate payment gateway timeout
+    ```
+  </Tab>
+
+  <Tab title="Weekly Report">
+    **Email sent Monday 9 AM**
+
+    ```
+    VIJ Weekly Report - Week of 2024-01-01
+
+    Overview:
+    - Total Errors: 8,456
+    - Average Daily: 1,208
+    - Peak Day: Thursday (1,789 errors)
+    - Error Rate Change: +5.2%
+
+    Trends:
+    - Error rate increasing (action needed)
+    - Mobile app errors up 45%
+    - Backend API improving (-15%)
+
+    Top Issues:
+    1. Payment processing failures (1,234)
+    2. Authentication timeouts (567)
+    3. Database connection errors (345)
+    ```
+  </Tab>
+
+  <Tab title="Monthly Report">
+    **Email sent 1st of month**
+
+    ```
+    VIJ Monthly Report - January 2024
+
+    Executive Summary:
+    - Total Errors: 36,789
+    - Unique Error Groups: 567
+    - Affected Users: 4.2% of user base
+    - Uptime: 99.2%
+
+    Month-over-Month:
+    - Errors: -8% (improvement)
+    - New Groups: -12% (fewer new bugs)
+    - Resolution Rate: +15% (faster fixes)
+
+    Notable Improvements:
+    - Payment errors reduced by 45%
+    - Authentication issues down 30%
+    - Database errors down 20%
+
+    Focus Areas:
+    - Mobile app stability
+    - Checkout flow optimization
+    - API timeout handling
+    ```
+  </Tab>
+</Tabs>
+
+### Custom Reports
+
+Generate custom reports via API:
+
+```bash
+GET /api/reports/generate
+  ?type=custom
+  &startDate=2024-01-01
+  &endDate=2024-01-31
+  &groupBy=appId,severity
+  &format=pdf
+```
+
+### Export Formats
+
+<CodeGroup>
+```bash PDF
+GET /api/reports/export?format=pdf&report=weekly
+```
+
+```bash CSV
+GET /api/reports/export?format=csv&report=daily
+```
+
+```bash JSON
+GET /api/reports/export?format=json&report=monthly
+```
+
+```bash Excel
+GET /api/reports/export?format=xlsx&report=custom
+```
+</CodeGroup>
+
+## Real-Time Analytics
+
+Live analytics dashboard with streaming updates.
+
+### WebSocket Connection
+
+```typescript
+const ws = new WebSocket('wss://vij.example.com/analytics');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === 'errorRate') {
+    updateErrorRateChart(data.value);
+  }
+
+  if (data.type === 'newError') {
+    incrementCounter();
+    addToRecentErrors(data.error);
+  }
+};
+```
+
+### Live Metrics
+
+```typescript
+interface LiveMetrics {
+  errorsLastMinute: number;
+  errorsLastHour: number;
+  currentRate: number;      // Errors per minute
+  activeUsers: number;
+  topErrors: Array<{
+    message: string;
+    count: number;
+  }>;
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Monitor trends, not just counts">
+    Focus on:
+    - Error rate over time (not just total)
+    - Week-over-week changes
+    - Correlations with deployments
+    - Seasonal patterns
+  </Accordion>
+
+  <Accordion title="Set meaningful thresholds">
+    ```typescript
+    const thresholds = {
+      errorRate: {
+        warning: 50,     // errors per hour
+        critical: 100
+      },
+      affectedUsers: {
+        warning: 1,      // percentage
+        critical: 5
+      },
+      responseTime: {
+        warning: 2000,   // milliseconds
+        critical: 5000
+      }
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Correlate with deployments">
+    Track errors against deploy times:
+    ```typescript
+    const deployments = [
+      { time: "2024-01-01T10:00:00Z", version: "v2.1.0" },
+      { time: "2024-01-01T14:00:00Z", version: "v2.1.1" }
+    ];
+
+    // Overlay on error chart to see impact
+    ```
+  </Accordion>
+
+  <Accordion title="Use percentages, not absolutes">
+    ```
+    Better: "5% of users affected"
+    Worse: "2,500 errors occurred"
+
+    Better: "Error rate increased 45%"
+    Worse: "567 more errors than yesterday"
+    ```
+  </Accordion>
+
+  <Accordion title="Set up automated alerts">
+    Don't rely on manual checks:
+    - Email for critical errors
+    - Slack for warnings
+    - PagerDuty for emergencies
+    - Weekly summary reports
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore analytics in the dashboard
+  </Card>
+  <Card title="Filtering & Search" icon="filter" href="/advanced/filtering-search">
+    Filter data for specific analytics
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Analyze error groups and patterns
+  </Card>
+  <Card title="API Reference" icon="webhook" href="/api-reference/stats">
+    Use the stats API for custom analytics
+  </Card>
+</CardGroup>

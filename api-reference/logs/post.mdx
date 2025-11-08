@@ -1,0 +1,497 @@
+---
+title: "POST /api/logs"
+description: "Ingest error logs into VIJ Admin"
+api: "POST https://vij.example.com/api/logs"
+---
+
+The POST `/api/logs` endpoint receives error logs from vij-sdk or custom clients and stores them in MongoDB.
+
+## Request
+
+<ParamField body="message" type="string" required>
+The error message describing what went wrong.
+
+**Example**: `"TypeError: Cannot read property 'map' of undefined"`
+</ParamField>
+
+<ParamField body="name" type="string" required>
+The error name or type.
+
+**Example**: `"TypeError"`, `"ReferenceError"`, `"CustomError"`
+</ParamField>
+
+<ParamField body="stack" type="string" required>
+Full stack trace of the error.
+
+**Example**:
+```
+Error: Payment processing failed
+    at processPayment (payment.js:45:12)
+    at handleCheckout (checkout.js:123:5)
+    at onClick (Button.tsx:67:20)
+```
+</ParamField>
+
+<ParamField body="severity" type="string" required>
+Severity level of the error.
+
+**Values**: `"error"`, `"warning"`, `"info"`
+
+**Default**: `"error"`
+</ParamField>
+
+<ParamField body="timestamp" type="string" required>
+ISO 8601 timestamp when the error occurred.
+
+**Format**: `YYYY-MM-DDTHH:mm:ss.sssZ`
+
+**Example**: `"2024-01-01T12:34:56.789Z"`
+</ParamField>
+
+<ParamField body="appId" type="string" required>
+Identifier for the application that generated the error.
+
+**Example**: `"my-frontend-app"`, `"backend-api"`, `"mobile-app"`
+</ParamField>
+
+<ParamField body="environment" type="string" required>
+Environment where the error occurred.
+
+**Example**: `"production"`, `"staging"`, `"development"`
+</ParamField>
+
+<ParamField body="metadata" type="object">
+Custom metadata attached to the error.
+
+**Example**:
+```json
+{
+  "userId": "user-123",
+  "userEmail": "user@example.com",
+  "feature": "checkout",
+  "orderId": "order-456",
+  "version": "2.1.0"
+}
+```
+</ParamField>
+
+<ParamField body="context" type="object">
+Environmental context (browser or Node.js information).
+
+**Browser Context**:
+```json
+{
+  "viewport": { "width": 1920, "height": 1080 },
+  "screen": { "width": 1920, "height": 1080, "colorDepth": 24 },
+  "browser": {
+    "userAgent": "Mozilla/5.0...",
+    "language": "en-US",
+    "platform": "MacIntel"
+  },
+  "network": {
+    "effectiveType": "4g",
+    "downlink": 10,
+    "rtt": 50
+  }
+}
+```
+
+**Node.js Context**:
+```json
+{
+  "process": {
+    "pid": 12345,
+    "platform": "linux",
+    "arch": "x64",
+    "nodeVersion": "v20.0.0",
+    "memory": {
+      "rss": 50000000,
+      "heapUsed": 20000000
+    }
+  }
+}
+```
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+Indicates whether the log was successfully stored.
+</ResponseField>
+
+<ResponseField name="id" type="string">
+MongoDB ObjectId of the created log entry.
+</ResponseField>
+
+<ResponseField name="group" type="string">
+Fingerprint hash used for error grouping.
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://vij.example.com/api/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Payment processing failed",
+    "name": "Error",
+    "stack": "Error: Payment processing failed\n    at processPayment (payment.js:45:12)",
+    "severity": "error",
+    "timestamp": "2024-01-01T12:34:56.789Z",
+    "appId": "my-app",
+    "environment": "production",
+    "metadata": {
+      "userId": "user-123",
+      "orderId": "order-456"
+    },
+    "context": {
+      "viewport": { "width": 1920, "height": 1080 }
+    }
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://vij.example.com/api/logs', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    message: 'Payment processing failed',
+    name: 'Error',
+    stack: 'Error: Payment processing failed\n    at processPayment (payment.js:45:12)',
+    severity: 'error',
+    timestamp: new Date().toISOString(),
+    appId: 'my-app',
+    environment: 'production',
+    metadata: {
+      userId: 'user-123',
+      orderId: 'order-456'
+    },
+    context: {
+      viewport: { width: window.innerWidth, height: window.innerHeight }
+    }
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+import json
+from datetime import datetime
+
+response = requests.post(
+    'https://vij.example.com/api/logs',
+    headers={'Content-Type': 'application/json'},
+    json={
+        'message': 'Payment processing failed',
+        'name': 'Error',
+        'stack': 'Error: Payment processing failed\n    at processPayment (payment.js:45:12)',
+        'severity': 'error',
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'appId': 'my-app',
+        'environment': 'production',
+        'metadata': {
+            'userId': 'user-123',
+            'orderId': 'order-456'
+        },
+        'context': {}
+    }
+)
+
+print(response.json())
+```
+</CodeGroup>
+
+## Example Response
+
+<ResponseExample>
+```json Success (200)
+{
+  "success": true,
+  "id": "65a1b2c3d4e5f6g7h8i9j0k1",
+  "group": "abc123def456"
+}
+```
+</ResponseExample>
+
+## Error Responses
+
+<ResponseExample>
+```json Bad Request (400)
+{
+  "error": "Missing required field: message"
+}
+```
+
+```json Invalid Data (400)
+{
+  "error": "Invalid severity level. Must be 'error', 'warning', or 'info'"
+}
+```
+
+```json Server Error (500)
+{
+  "error": "Failed to store log entry"
+}
+```
+</ResponseExample>
+
+## Validation Rules
+
+<AccordionGroup>
+  <Accordion title="Required Fields">
+    All of these fields must be present:
+    - `message`
+    - `name`
+    - `stack`
+    - `severity`
+    - `timestamp`
+    - `appId`
+    - `environment`
+
+    Optional fields:
+    - `metadata` (defaults to `{}`)
+    - `context` (defaults to `{}`)
+  </Accordion>
+
+  <Accordion title="Severity Values">
+    `severity` must be one of:
+    - `"error"` - Critical errors
+    - `"warning"` - Non-critical issues
+    - `"info"` - Informational logs
+
+    Any other value will return a 400 error.
+  </Accordion>
+
+  <Accordion title="Timestamp Format">
+    `timestamp` must be a valid ISO 8601 string:
+    - Format: `YYYY-MM-DDTHH:mm:ss.sssZ`
+    - Example: `2024-01-01T12:34:56.789Z`
+    - Must be in UTC (Z timezone)
+
+    Invalid formats will return a 400 error.
+  </Accordion>
+
+  <Accordion title="String Length Limits">
+    - `message`: Max 10,000 characters
+    - `name`: Max 500 characters
+    - `stack`: Max 50,000 characters
+    - `appId`: Max 100 characters
+    - `environment`: Max 50 characters
+
+    Exceeding limits will truncate the value.
+  </Accordion>
+</AccordionGroup>
+
+## Rate Limiting
+
+<Note>
+VIJ Admin does not enforce rate limiting by default. However, you should implement rate limiting in production to prevent abuse.
+</Note>
+
+**Recommended limits**:
+- 1,000 requests per minute per IP
+- 10,000 requests per hour per appId
+
+**Implementation example**:
+```javascript
+// Add to middleware
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 1000,
+  message: 'Too many requests'
+});
+
+app.use('/api/logs', limiter);
+```
+
+## CORS Configuration
+
+VIJ Admin allows all origins by default for the `/api/logs` endpoint.
+
+**Default CORS headers**:
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+```
+
+**Custom CORS** (if needed):
+```javascript
+// In next.config.js
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/api/logs',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: 'https://your-app.com' },
+          { key: 'Access-Control-Allow-Methods', value: 'POST, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' }
+        ]
+      }
+    ];
+  }
+};
+```
+
+## Processing Pipeline
+
+When a log is received, VIJ processes it through these steps:
+
+1. **Validation** - Check required fields and formats
+2. **Fingerprinting** - Generate error group fingerprint
+3. **Storage** - Insert into MongoDB `logs` collection
+4. **Indexing** - Update MongoDB indexes
+5. **Grouping** - Update error group counters
+6. **Response** - Return success with log ID
+
+**Processing time**: Typically < 50ms
+
+## Batch Logging
+
+Send multiple logs in a single request:
+
+```bash
+POST /api/logs/batch
+
+{
+  "logs": [
+    { /* log 1 */ },
+    { /* log 2 */ },
+    { /* log 3 */ }
+  ]
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "inserted": 3,
+  "ids": ["id1", "id2", "id3"]
+}
+```
+
+<Tip>
+The vij-sdk automatically batches logs to reduce network overhead.
+</Tip>
+
+## Security Considerations
+
+<AccordionGroup>
+  <Accordion title="No authentication by default">
+    VIJ Admin does not require authentication for the `/api/logs` endpoint by default.
+
+    **Add authentication**:
+    ```javascript
+    // middleware.ts
+    export function middleware(request: NextRequest) {
+      const apiKey = request.headers.get('x-api-key');
+
+      if (apiKey !== process.env.API_KEY) {
+        return new NextResponse('Unauthorized', { status: 401 });
+      }
+
+      return NextResponse.next();
+    }
+
+    export const config = {
+      matcher: '/api/logs'
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Sanitize sensitive data">
+    Never log sensitive information:
+    - Passwords
+    - API keys
+    - Credit card numbers
+    - Social security numbers
+    - Personal identification
+
+    **Sanitize before sending**:
+    ```javascript
+    const sanitizedMetadata = {
+      ...metadata,
+      password: undefined,
+      apiKey: undefined,
+      creditCard: metadata.creditCard ? 'REDACTED' : undefined
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Validate input size">
+    Prevent large payloads from overwhelming the server:
+    ```javascript
+    // In API route
+    const MAX_PAYLOAD_SIZE = 1024 * 100; // 100 KB
+
+    if (JSON.stringify(req.body).length > MAX_PAYLOAD_SIZE) {
+      return res.status(413).json({ error: 'Payload too large' });
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="400 Bad Request">
+    **Common causes**:
+    - Missing required fields
+    - Invalid severity value
+    - Invalid timestamp format
+    - Malformed JSON
+
+    **Solution**: Check request body matches schema exactly
+  </Accordion>
+
+  <Accordion title="413 Payload Too Large">
+    **Cause**: Request body exceeds size limit
+
+    **Solution**:
+    - Reduce stack trace length
+    - Minimize metadata
+    - Use batch endpoint for multiple logs
+  </Accordion>
+
+  <Accordion title="500 Internal Server Error">
+    **Common causes**:
+    - MongoDB connection failure
+    - Database write error
+    - Server configuration issue
+
+    **Solution**: Check VIJ Admin logs and MongoDB connection
+  </Accordion>
+
+  <Accordion title="CORS errors">
+    **Symptom**: Browser blocks request
+
+    **Solution**: Ensure CORS headers allow your domain or use `*` for all origins
+  </Accordion>
+</AccordionGroup>
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="GET /api/logs" icon="list" href="/api-reference/logs/get">
+    Retrieve stored error logs
+  </Card>
+  <Card title="GET /api/stats" icon="chart-line" href="/api-reference/stats">
+    Get error statistics and metrics
+  </Card>
+  <Card title="GET /api/groups" icon="layer-group" href="/api-reference/groups">
+    Retrieve error groups
+  </Card>
+  <Card title="SDK Reference" icon="code" href="/sdk/api-reference">
+    Use vij-sdk for automatic logging
+  </Card>
+</CardGroup>

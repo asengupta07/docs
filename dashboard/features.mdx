@@ -1,0 +1,599 @@
+---
+title: "Dashboard Features"
+description: "Explore the VIJ Admin dashboard features and capabilities"
+---
+
+The VIJ Admin dashboard provides comprehensive error monitoring, AI-powered analysis, and powerful search and filtering capabilities.
+
+## Dashboard Overview
+
+The dashboard home provides real-time insights into your application health.
+
+### Key Metrics
+
+<CardGroup cols={3}>
+  <Card title="Total Errors" icon="bug">
+    Track the total number of errors across all applications and environments
+  </Card>
+  <Card title="Error Rate" icon="chart-line">
+    Monitor error frequency trends over time periods
+  </Card>
+  <Card title="Active Groups" icon="layer-group">
+    View the number of unique error groups (deduplicated errors)
+  </Card>
+</CardGroup>
+
+### Dashboard Components
+
+#### Error Trends Chart
+
+Visualizes error frequency over time:
+
+- **Time ranges**: Last hour, 24 hours, 7 days, 30 days
+- **Grouping**: Hourly or daily buckets
+- **Severity breakdown**: Stacked by error, warning, info levels
+
+```javascript
+// Example data structure
+{
+  timestamp: "2024-01-01T12:00:00Z",
+  errors: 45,
+  warnings: 12,
+  info: 3
+}
+```
+
+<Tip>
+Hover over data points to see exact counts and timestamps.
+</Tip>
+
+#### Severity Distribution
+
+Pie chart showing error distribution by severity:
+
+- **Error** (red) - Critical errors
+- **Warning** (yellow) - Non-critical issues
+- **Info** (blue) - Informational logs
+
+**Use Case**: Quickly identify if your application has critical errors that need immediate attention.
+
+#### Recent Errors
+
+List of the most recent 10 errors with:
+- Error message
+- Severity badge
+- Application ID
+- Environment
+- Timestamp
+- Quick link to details
+
+**Quick Actions**:
+- Click any error to view full details
+- Filter by clicking severity badges
+- Navigate to full logs view
+
+#### Top Error Groups
+
+Most frequently occurring errors (grouped by fingerprint):
+
+Shows:
+- Error message
+- Occurrence count
+- First seen timestamp
+- Last seen timestamp
+- Severity
+
+<Note>
+Error grouping uses intelligent fingerprinting to deduplicate similar errors. [Learn more about grouping →](/advanced/error-grouping)
+</Note>
+
+## Logs View
+
+The logs page (`/logs`) provides comprehensive error browsing and filtering.
+
+### Logs Table
+
+<Frame>
+  <img src="/images/logs-table-placeholder.png" alt="Logs table view" />
+</Frame>
+
+**Columns**:
+- **Severity** - Color-coded badge (error/warning/info)
+- **Message** - Error message preview (truncated)
+- **App ID** - Application identifier
+- **Environment** - Environment name
+- **Timestamp** - When the error occurred
+- **Actions** - View details button
+
+**Features**:
+- **Sorting**: Click column headers to sort
+- **Pagination**: Navigate through large result sets
+- **Row highlighting**: Errors highlighted in red
+- **Responsive**: Optimized for mobile and desktop
+
+### Filtering Options
+
+#### Quick Filters
+
+Pre-built filters for common queries:
+
+<Tabs>
+  <Tab title="Severity">
+    ```javascript
+    // Filter by severity
+    severity=error
+    severity=warning
+    severity=info
+    ```
+
+    **UI**: Pill buttons at top of page
+  </Tab>
+
+  <Tab title="Environment">
+    ```javascript
+    // Filter by environment
+    environment=production
+    environment=staging
+    environment=development
+    ```
+
+    **UI**: Dropdown selector
+  </Tab>
+
+  <Tab title="Application">
+    ```javascript
+    // Filter by app ID
+    appId=my-frontend
+    appId=my-backend
+    ```
+
+    **UI**: Multi-select dropdown
+  </Tab>
+
+  <Tab title="Time Range">
+    ```javascript
+    // Filter by time
+    startDate=2024-01-01T00:00:00Z
+    endDate=2024-01-31T23:59:59Z
+    ```
+
+    **UI**: Date range picker
+  </Tab>
+</Tabs>
+
+#### Advanced Filters
+
+Combine multiple filters for precise queries:
+
+```
+severity=error&environment=production&appId=my-app&startDate=2024-01-01
+```
+
+**Supported Operators**:
+- `=` - Exact match
+- `!=` - Not equal
+- `>` / `<` - Greater/less than (timestamps)
+- `~` - Contains (text search)
+
+<Tip>
+Filters are reflected in the URL, making it easy to bookmark or share specific views.
+</Tip>
+
+### Full-Text Search
+
+Search across error messages and stack traces:
+
+```
+search=TypeError: Cannot read property
+```
+
+**Search Features**:
+- Case-insensitive
+- Searches both `message` and `stack` fields
+- MongoDB text index for performance
+- Highlights matches in results
+
+**Search Tips**:
+```
+// Find specific errors
+"undefined is not an object"
+
+// Find errors in a file
+"checkout.js"
+
+// Find errors from a function
+"processPayment"
+
+// Combine with filters
+search=TypeError&severity=error&environment=production
+```
+
+### Bulk Actions
+
+Select multiple logs for bulk operations:
+
+- **Delete** - Remove selected logs
+- **Export** - Download as JSON or CSV
+- **Mark as resolved** - Archive errors
+
+<Warning>
+Deleted logs cannot be recovered. Export important data before deletion.
+</Warning>
+
+## Error Details
+
+Click any error to view comprehensive details.
+
+### Error Overview
+
+**Header Section**:
+- Error name and message
+- Severity badge
+- Timestamp (relative and absolute)
+- Application ID and environment
+
+**Actions**:
+- Share link
+- Export as JSON
+- Delete error
+- Mark as resolved
+
+### Stack Trace
+
+Full stack trace with:
+- Line-by-line breakdown
+- File names and line numbers
+- Function names
+- Syntax highlighting
+
+```javascript
+Error: Payment processing failed
+    at processPayment (payment.js:45:12)
+    at handleCheckout (checkout.js:123:5)
+    at onClick (Button.tsx:67:20)
+```
+
+<Tip>
+Click file paths to see context (if source maps are available).
+</Tip>
+
+### Metadata Cards
+
+Custom metadata displayed in organized cards:
+
+<Tabs>
+  <Tab title="User Context">
+    ```json
+    {
+      "userId": "user-123",
+      "userEmail": "user@example.com",
+      "userRole": "premium",
+      "loginTime": "2024-01-01T10:00:00Z"
+    }
+    ```
+  </Tab>
+
+  <Tab title="Request Context">
+    ```json
+    {
+      "url": "/api/payment",
+      "method": "POST",
+      "statusCode": 500,
+      "headers": {
+        "content-type": "application/json"
+      }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Application Context">
+    ```json
+    {
+      "version": "2.1.0",
+      "buildNumber": "1234",
+      "commitSha": "abc123",
+      "region": "us-east-1"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Display Rules**:
+- Nested objects expanded by default
+- Arrays displayed as lists
+- Timestamps formatted relative
+- URLs made clickable
+
+### Browser/Node Context
+
+Automatically collected environment information:
+
+<Tabs>
+  <Tab title="Browser">
+    **Viewport**:
+    - Width: 1920px
+    - Height: 1080px
+
+    **Screen**:
+    - Resolution: 1920x1080
+    - Color Depth: 24-bit
+
+    **Browser**:
+    - User Agent: Mozilla/5.0...
+    - Language: en-US
+    - Platform: MacIntel
+    - Cookies: Enabled
+
+    **Network** (if available):
+    - Connection: 4G
+    - Downlink: 10 Mbps
+    - RTT: 50ms
+  </Tab>
+
+  <Tab title="Node.js">
+    **Process**:
+    - PID: 12345
+    - Platform: linux
+    - Architecture: x64
+    - Node Version: v20.0.0
+    - Uptime: 3600s
+
+    **Memory**:
+    - RSS: 50 MB
+    - Heap Total: 30 MB
+    - Heap Used: 20 MB
+    - External: 1 MB
+  </Tab>
+</Tabs>
+
+### AI Analysis (Optional)
+
+If Google Gemini is configured, view AI-powered insights:
+
+<AccordionGroup>
+  <Accordion title="AI Summary">
+    Concise description of what went wrong:
+
+    ```
+    The error occurred when attempting to process a payment
+    transaction. The application tried to access a property
+    on an undefined object, suggesting that the payment data
+    was not properly validated before processing.
+    ```
+  </Accordion>
+
+  <Accordion title="Possible Cause">
+    Root cause analysis:
+
+    ```
+    The payment object is likely undefined or null because:
+    1. The API request failed silently
+    2. The user session expired before checkout
+    3. The payment gateway timed out
+    ```
+  </Accordion>
+
+  <Accordion title="Suggested Fix">
+    Actionable recommendations:
+
+    ```
+    1. Add null check before accessing payment.amount
+    2. Implement proper error handling for API failures
+    3. Add timeout handling with user feedback
+    4. Log API response for debugging
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+AI analysis is generated on-demand and cached for performance. It may take a few seconds on first load.
+</Note>
+
+### Similar Errors
+
+View other errors in the same group:
+
+- Shows up to 10 similar errors
+- Sorted by most recent
+- Quick navigation between occurrences
+- Metadata comparison
+
+**Use Case**: Identify patterns across multiple occurrences of the same error.
+
+## Error Groups
+
+The groups page (`/groups`) shows deduplicated errors.
+
+### Groups Table
+
+**Columns**:
+- **Error Message** - Representative message
+- **Count** - Number of occurrences
+- **First Seen** - When first occurred
+- **Last Seen** - Most recent occurrence
+- **Severity** - Highest severity in group
+- **Actions** - View all occurrences
+
+### Grouping Algorithm
+
+Errors are grouped using a fingerprint generated from:
+
+1. **Error name** - `TypeError`, `ReferenceError`, etc.
+2. **Error message** - With dynamic values normalized
+3. **Stack trace** - Top 3 stack frames
+
+**Example**:
+```javascript
+// These errors are grouped together:
+"Error: User 123 not found"
+"Error: User 456 not found"
+"Error: User 789 not found"
+
+// Fingerprint: Error:User_not_found
+```
+
+[Learn more about error grouping →](/advanced/error-grouping)
+
+### Group Actions
+
+- **View all occurrences** - See all errors in group
+- **Mark as resolved** - Archive entire group
+- **Set alert** - Get notified on new occurrences
+- **Export group** - Download all occurrences
+
+## Real-Time Updates
+
+The dashboard updates in real-time as new errors arrive:
+
+- **Polling**: Checks for new errors every 10 seconds
+- **Visual indicator**: New error badge
+- **Auto-refresh**: Optionally enable auto-refresh
+- **Notifications**: Browser notifications for critical errors
+
+<Tip>
+Enable browser notifications to get alerted immediately when critical errors occur.
+</Tip>
+
+## Export and Sharing
+
+### Export Options
+
+<Tabs>
+  <Tab title="JSON Export">
+    ```json
+    {
+      "logs": [
+        {
+          "message": "Error message",
+          "stack": "...",
+          "timestamp": "2024-01-01T00:00:00Z",
+          "metadata": {},
+          "context": {}
+        }
+      ],
+      "exportedAt": "2024-01-01T12:00:00Z",
+      "totalCount": 100
+    }
+    ```
+  </Tab>
+
+  <Tab title="CSV Export">
+    ```csv
+    timestamp,severity,message,appId,environment
+    2024-01-01T00:00:00Z,error,"Payment failed",my-app,production
+    2024-01-01T00:01:00Z,warning,"Slow query",my-app,production
+    ```
+  </Tab>
+
+  <Tab title="PDF Report">
+    Formatted PDF with:
+    - Summary statistics
+    - Error trends chart
+    - Top errors table
+    - Detailed stack traces
+  </Tab>
+</Tabs>
+
+### Shareable Links
+
+Generate shareable links to specific views:
+
+```
+# Specific error
+https://vij.example.com/logs/abc123
+
+# Filtered view
+https://vij.example.com/logs?severity=error&environment=production
+
+# Error group
+https://vij.example.com/groups/group-fingerprint
+```
+
+<Warning>
+Ensure your VIJ instance has proper authentication before sharing links externally.
+</Warning>
+
+## Keyboard Shortcuts
+
+Speed up navigation with keyboard shortcuts:
+
+- `G` then `D` - Go to Dashboard
+- `G` then `L` - Go to Logs
+- `G` then `G` - Go to Groups
+- `/` - Focus search
+- `ESC` - Close modals
+- `←` / `→` - Navigate pagination
+
+<Tip>
+Press `?` to view all keyboard shortcuts.
+</Tip>
+
+## Performance Optimization
+
+The dashboard is optimized for large datasets:
+
+- **Virtualized tables**: Render only visible rows
+- **Lazy loading**: Load data on scroll
+- **Pagination**: 50 items per page (configurable)
+- **MongoDB indexes**: Fast queries even with millions of logs
+- **Caching**: AI analysis and stats cached
+
+**Handling Large Datasets**:
+- Use filters to narrow results
+- Archive old logs periodically
+- Implement log retention policies
+- Consider partitioning by time period
+
+## Customization
+
+### Theme
+
+Toggle between light and dark modes:
+
+```javascript
+// Auto-detect system preference
+const theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+  ? 'dark'
+  : 'light';
+```
+
+### Columns
+
+Customize which columns appear in logs table:
+
+- Show/hide columns
+- Reorder columns
+- Adjust column widths
+- Save preferences to local storage
+
+### Filters
+
+Save custom filter presets:
+
+```javascript
+// Save preset
+{
+  name: "Critical Production Errors",
+  filters: {
+    severity: "error",
+    environment: "production"
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Setup" icon="wrench" href="/dashboard/setup">
+    Learn how to set up and configure the dashboard
+  </Card>
+  <Card title="Filtering & Search" icon="filter" href="/advanced/filtering-search">
+    Master advanced filtering and search techniques
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Understand how VIJ groups similar errors
+  </Card>
+  <Card title="AI Integration" icon="brain" href="/advanced/ai-integration">
+    Enable and configure AI-powered error analysis
+  </Card>
+</CardGroup>

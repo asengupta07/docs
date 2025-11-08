@@ -1,0 +1,365 @@
+---
+title: "SDK Installation"
+description: "Install and integrate vij-sdk into your JavaScript or TypeScript application"
+---
+
+The vij-sdk is a lightweight, framework-agnostic library that works in both browser and Node.js environments.
+
+## Requirements
+
+- **Node.js 18+** (for Node.js environments)
+- **Modern browser** (for browser environments)
+- **TypeScript 4+** (optional, for TypeScript projects)
+
+## Installation
+
+Install vij-sdk using your preferred package manager:
+
+<CodeGroup>
+```bash npm
+npm install vij-sdk
+```
+
+```bash yarn
+yarn add vij-sdk
+```
+
+```bash pnpm
+pnpm add vij-sdk
+```
+
+```bash bun
+bun add vij-sdk
+```
+</CodeGroup>
+
+## Basic Setup
+
+### Browser Applications
+
+For vanilla JavaScript, React, Vue, Svelte, or any browser-based framework:
+
+<CodeGroup>
+```javascript React
+// src/main.jsx or src/index.js
+import { init } from "vij-sdk";
+
+// Initialize VIJ before rendering your app
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-react-app",
+  environment: "production"
+});
+
+// Then render your app
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+```
+
+```javascript Vue
+// src/main.js
+import { createApp } from 'vue';
+import { init } from "vij-sdk";
+import App from './App.vue';
+
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-vue-app",
+  environment: "production"
+});
+
+createApp(App).mount('#app');
+```
+
+```javascript Vanilla
+// index.js
+import { init } from "vij-sdk";
+
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-web-app",
+  environment: "production"
+});
+
+// Your app code
+```
+
+```html CDN (Browser)
+<script type="module">
+  import { init } from "https://unpkg.com/vij-sdk@latest/dist/index.mjs";
+
+  init({
+    endpoint: "https://your-vij-admin.com/api/logs",
+    appId: "my-website",
+    environment: "production"
+  });
+</script>
+```
+</CodeGroup>
+
+### Node.js Applications
+
+For Express, Fastify, or any Node.js backend:
+
+<CodeGroup>
+```javascript Express
+// server.js or index.js
+import express from "express";
+import { init } from "vij-sdk";
+
+// Initialize VIJ at the very top
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-api-server",
+  environment: "production"
+});
+
+const app = express();
+
+// Your server code
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
+});
+```
+
+```javascript Fastify
+// server.js
+import Fastify from 'fastify';
+import { init } from "vij-sdk";
+
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-fastify-app",
+  environment: "production"
+});
+
+const fastify = Fastify();
+// Your routes and plugins
+await fastify.listen({ port: 3000 });
+```
+
+```javascript CommonJS
+// For older Node.js projects using require()
+const { init } = require("vij-sdk");
+
+init({
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-legacy-app",
+  environment: "production"
+});
+```
+</CodeGroup>
+
+### Next.js Applications
+
+Next.js requires special handling for App Router vs Pages Router:
+
+<Tabs>
+  <Tab title="App Router">
+    Create a client component for SDK initialization:
+
+    ```javascript lib/vij.js
+    "use client";
+    import { init } from "vij-sdk";
+
+    if (typeof window !== "undefined") {
+      init({
+        endpoint: process.env.NEXT_PUBLIC_VIJ_ENDPOINT,
+        appId: "my-nextjs-app",
+        environment: process.env.NODE_ENV === "production" ? "production" : "development"
+      });
+    }
+
+    export default function VijInit() {
+      return null;
+    }
+    ```
+
+    Then import in your root layout:
+
+    ```javascript app/layout.js
+    import VijInit from "./lib/vij";
+
+    export default function RootLayout({ children }) {
+      return (
+        <html>
+          <body>
+            <VijInit />
+            {children}
+          </body>
+        </html>
+      );
+    }
+    ```
+
+    Add environment variable to `.env.local`:
+    ```bash
+    NEXT_PUBLIC_VIJ_ENDPOINT=https://your-vij-admin.com/api/logs
+    ```
+  </Tab>
+
+  <Tab title="Pages Router">
+    Initialize in `_app.js`:
+
+    ```javascript pages/_app.js
+    import { init } from "vij-sdk";
+    import { useEffect } from "react";
+
+    if (typeof window !== "undefined") {
+      init({
+        endpoint: process.env.NEXT_PUBLIC_VIJ_ENDPOINT,
+        appId: "my-nextjs-app",
+        environment: process.env.NODE_ENV === "production" ? "production" : "development"
+      });
+    }
+
+    export default function App({ Component, pageProps }) {
+      return <Component {...pageProps} />;
+    }
+    ```
+  </Tab>
+
+  <Tab title="Server-Side (API Routes)">
+    For tracking server-side errors in Next.js API routes:
+
+    ```javascript lib/vij-server.js
+    import { init } from "vij-sdk";
+
+    init({
+      endpoint: process.env.VIJ_ENDPOINT,
+      appId: "my-nextjs-api",
+      environment: process.env.NODE_ENV === "production" ? "production" : "development"
+    });
+    ```
+
+    Import in your API routes:
+
+    ```javascript pages/api/hello.js
+    import "../lib/vij-server"; // Import at top
+
+    export default function handler(req, res) {
+      // Your API logic
+      res.status(200).json({ message: "Hello" });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## TypeScript Setup
+
+vij-sdk includes full TypeScript definitions out of the box. No additional `@types` package needed!
+
+```typescript example.ts
+import { init, captureException, captureMessage, type InitOptions } from "vij-sdk";
+
+const options: InitOptions = {
+  endpoint: "https://your-vij-admin.com/api/logs",
+  appId: "my-ts-app",
+  environment: "production",
+  batch: true,
+  maxBatchSize: 20
+};
+
+init(options);
+
+// TypeScript will provide full IntelliSense
+captureException(new Error("Test error"), { userId: 123 }, "error");
+captureMessage("User logged in", { email: "user@example.com" }, "info");
+```
+
+## Verification
+
+After installation, verify that VIJ is working:
+
+```javascript
+import { captureMessage } from "vij-sdk";
+
+// Send a test message
+captureMessage("VIJ SDK initialized successfully!", { test: true }, "info");
+```
+
+<Check>
+Check your VIJ Admin dashboard at `/logs` — you should see the test message appear within a few seconds.
+</Check>
+
+## Module Formats
+
+vij-sdk is distributed in multiple formats for maximum compatibility:
+
+- **ESM** (`dist/index.mjs`) - Modern JavaScript modules
+- **CommonJS** (`dist/index.cjs`) - Legacy Node.js require()
+- **TypeScript** (`dist/index.d.ts`) - Type definitions
+
+The package.json `exports` field ensures the correct format is used automatically.
+
+## Bundle Size
+
+vij-sdk is designed to be lightweight:
+
+- **Minified**: ~8KB
+- **Gzipped**: ~3KB
+- **Zero dependencies** (except tslib for TypeScript helpers)
+
+<Tip>
+vij-sdk is tree-shakeable. If you only use certain functions, your bundler will exclude unused code.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module not found error">
+    **Issue**: `Cannot find module 'vij-sdk'`
+
+    **Solution**:
+    - Ensure you ran `npm install vij-sdk`
+    - Check that node_modules/vij-sdk exists
+    - Try deleting node_modules and running install again
+    - For Yarn/PNPM, ensure the package is in your lock file
+  </Accordion>
+
+  <Accordion title="SDK not capturing errors">
+    **Issue**: Errors not appearing in dashboard
+
+    **Solution**:
+    - Verify `init()` is called before any other code
+    - Check that `endpoint` URL is correct and accessible
+    - Look for CORS errors in browser console
+    - Ensure your VIJ Admin instance is running
+    - Check Network tab for failed POST requests to /api/logs
+  </Accordion>
+
+  <Accordion title="TypeScript errors">
+    **Issue**: Type errors or missing IntelliSense
+
+    **Solution**:
+    - Ensure TypeScript 4+ is installed
+    - Check that `node_modules/vij-sdk/dist/index.d.ts` exists
+    - Try restarting your IDE/TypeScript server
+    - Verify `moduleResolution` in tsconfig.json is set to "bundler" or "node16"
+  </Accordion>
+
+  <Accordion title="Next.js: window is not defined">
+    **Issue**: ReferenceError: window is not defined
+
+    **Solution**:
+    - Wrap init() in `typeof window !== "undefined"` check
+    - Use `"use client"` directive for App Router components
+    - See Next.js setup examples above
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/sdk/configuration">
+    Learn about all available SDK configuration options
+  </Card>
+  <Card title="Capturing Errors" icon="bug" href="/sdk/capturing-errors">
+    Understand how to capture errors and messages
+  </Card>
+  <Card title="API Reference" icon="code" href="/sdk/api-reference">
+    Explore the complete SDK API documentation
+  </Card>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Follow our end-to-end quickstart guide
+  </Card>
+</CardGroup>

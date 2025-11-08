@@ -1,0 +1,540 @@
+---
+title: "Dashboard Setup"
+description: "Deploy and configure the VIJ Admin monitoring dashboard"
+---
+
+The VIJ Admin dashboard is a Next.js application that provides error monitoring, visualization, and AI-powered analysis. This guide walks you through setting up your own self-hosted instance.
+
+## Prerequisites
+
+Before setting up VIJ Admin, ensure you have:
+
+<AccordionGroup>
+  <Accordion title="Required Software">
+    - **Node.js 18+** - Required for running Next.js
+    - **npm, yarn, pnpm, or bun** - Package manager
+    - **MongoDB 5.0+** - Database for storing error logs
+    - **Git** - For cloning the repository
+  </Accordion>
+
+  <Accordion title="MongoDB Setup">
+    You need a MongoDB instance. Choose one of:
+
+    **Option 1: MongoDB Atlas (Cloud)**
+    1. Create free account at [mongodb.com/atlas](https://www.mongodb.com/atlas)
+    2. Create a cluster
+    3. Get connection string
+
+    **Option 2: Local MongoDB**
+    ```bash
+    # macOS
+    brew install mongodb-community
+    brew services start mongodb-community
+
+    # Linux
+    sudo apt-get install mongodb
+    sudo systemctl start mongodb
+
+    # Docker
+    docker run -d -p 27017:27017 --name mongodb mongo:latest
+    ```
+  </Accordion>
+
+  <Accordion title="Optional: Google Gemini API Key">
+    For AI-powered error analysis:
+    1. Visit [ai.google.dev](https://ai.google.dev)
+    2. Create an API key
+    3. Keep it for environment configuration
+
+    <Note>
+    AI features are optional. VIJ works perfectly without them.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Installation
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the VIJ Admin repository:
+
+    ```bash
+    git clone https://github.com/asengupta07/vij-admin.git
+    cd vij-admin
+    ```
+
+    <Tip>
+    Alternatively, fork the repository first if you plan to make customizations.
+    </Tip>
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all required npm packages:
+
+    <CodeGroup>
+    ```bash npm
+    npm install
+    ```
+
+    ```bash yarn
+    yarn install
+    ```
+
+    ```bash pnpm
+    pnpm install
+    ```
+
+    ```bash bun
+    bun install
+    ```
+    </CodeGroup>
+
+    This will install:
+    - Next.js 14+ framework
+    - MongoDB driver
+    - Google Generative AI SDK
+    - UI components and utilities
+  </Step>
+
+  <Step title="Configure environment variables">
+    Create a `.env.local` file in the project root:
+
+    ```bash
+    touch .env.local
+    ```
+
+    Add the following configuration:
+
+    ```bash .env.local
+    # Required: MongoDB connection string
+    MONGODB_URI=mongodb://localhost:27017/vij
+
+    # Required: Application base URL
+    NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+    # Optional: Google Gemini API key for AI features
+    GEMINI_API_KEY=your_api_key_here
+    ```
+
+    <Warning>
+    **MONGODB_URI** is required. The application will not start without it.
+    </Warning>
+
+    <Tip>
+    See the [Environment Variables reference](/dashboard/environment-variables) for all available options.
+    </Tip>
+  </Step>
+
+  <Step title="Start the development server">
+    Run the Next.js development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    The dashboard will be available at [http://localhost:3000](http://localhost:3000)
+
+    <Check>
+    You should see the VIJ Admin dashboard! The home page will be empty until you start sending logs from your applications.
+    </Check>
+  </Step>
+
+  <Step title="Verify database connection">
+    Check the terminal output for MongoDB connection status:
+
+    ```
+    ✓ Ready in 2.3s
+    ✓ MongoDB connected successfully
+    ```
+
+    If you see connection errors, verify:
+    - MongoDB is running
+    - Connection string is correct
+    - Network/firewall allows connection
+  </Step>
+</Steps>
+
+## Configuration
+
+### Environment Variables
+
+Configure VIJ Admin through environment variables:
+
+<ParamField path="MONGODB_URI" type="string" required>
+MongoDB connection string.
+
+**Format**: `mongodb://[username:password@]host[:port]/database[?options]`
+
+**Examples**:
+```bash
+# Local MongoDB
+MONGODB_URI=mongodb://localhost:27017/vij
+
+# MongoDB Atlas
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/vij
+
+# With authentication
+MONGODB_URI=mongodb://admin:password@localhost:27017/vij?authSource=admin
+
+# Replica set
+MONGODB_URI=mongodb://host1:27017,host2:27017,host3:27017/vij?replicaSet=rs0
+```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_BASE_URL" type="string" required>
+Base URL where your VIJ Admin dashboard is accessible.
+
+**Usage**: Used for API endpoints and client-side routing.
+
+**Examples**:
+```bash
+# Development
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# Production
+NEXT_PUBLIC_BASE_URL=https://vij.yourdomain.com
+
+# Custom port
+NEXT_PUBLIC_BASE_URL=http://localhost:8080
+```
+</ParamField>
+
+<ParamField path="GEMINI_API_KEY" type="string">
+Google Gemini API key for AI-powered error analysis.
+
+**Get a key**: [ai.google.dev](https://ai.google.dev)
+
+**Example**:
+```bash
+GEMINI_API_KEY=AIzaSyC1234567890abcdefghijklmnopqrstuv
+```
+
+<Note>
+Without this key, AI features will be disabled but all other functionality works normally.
+</Note>
+</ParamField>
+
+### MongoDB Configuration
+
+VIJ Admin automatically creates the following indexes for optimal performance:
+
+```javascript
+// Composite index for efficient filtering
+{ appId: 1, environment: 1, timestamp: -1 }
+
+// Text index for full-text search
+{ message: "text", stack: "text" }
+
+// Grouping index
+{ group: 1, timestamp: -1 }
+```
+
+<Tip>
+Indexes are created automatically on first connection. No manual setup required.
+</Tip>
+
+### Database Schema
+
+Error logs are stored in the `logs` collection with this structure:
+
+```typescript
+{
+  _id: ObjectId,
+  message: string,
+  name: string,
+  stack: string,
+  severity: "error" | "warning" | "info",
+  timestamp: Date,
+  appId: string,
+  environment: string,
+  metadata: object,
+  context: object,
+  group: string, // Auto-generated fingerprint
+  aiAnalysis?: {
+    summary: string,
+    possibleCause: string,
+    suggestedFix: string
+  }
+}
+```
+
+## Next.js Configuration
+
+The VIJ Admin uses these Next.js settings:
+
+### App Router Structure
+
+```
+app/
+├── page.tsx              # Dashboard home
+├── logs/
+│   ├── page.tsx         # Logs listing
+│   └── [id]/
+│       └── page.tsx     # Error details
+├── groups/
+│   └── page.tsx         # Error groups
+├── api/
+│   ├── logs/
+│   │   └── route.ts     # POST /api/logs, GET /api/logs
+│   ├── stats/
+│   │   └── route.ts     # GET /api/stats
+│   └── groups/
+│       └── route.ts     # GET /api/groups
+└── layout.tsx           # Root layout
+```
+
+### API Routes
+
+All API routes are automatically available:
+
+- `POST /api/logs` - Receive error logs from SDK
+- `GET /api/logs` - Fetch logs with filtering
+- `GET /api/stats` - Get dashboard statistics
+- `GET /api/groups` - Get grouped errors
+
+<Note>
+These routes are documented in detail in the [API Reference](/api-reference/logs/post).
+</Note>
+
+## Initial Setup Checklist
+
+After installation, verify your setup:
+
+<Steps>
+  <Step title="Check dashboard access">
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+    You should see:
+    - Dashboard home page
+    - Navigation menu (Dashboard, Logs, Groups)
+    - Empty state (no errors yet)
+  </Step>
+
+  <Step title="Verify API endpoints">
+    Test the API is responding:
+
+    ```bash
+    # Check health
+    curl http://localhost:3000/api/logs
+
+    # Should return: {"error":"Method not allowed"}
+    ```
+
+    <Check>
+    Getting a method error is good! It means the API is running.
+    </Check>
+  </Step>
+
+  <Step title="Test log ingestion">
+    Send a test log:
+
+    ```bash
+    curl -X POST http://localhost:3000/api/logs \
+      -H "Content-Type: application/json" \
+      -d '{
+        "message": "Test error",
+        "name": "Error",
+        "stack": "Error: Test error\n    at test.js:1:1",
+        "severity": "error",
+        "timestamp": "2024-01-01T00:00:00.000Z",
+        "appId": "test-app",
+        "environment": "development",
+        "metadata": {},
+        "context": {}
+      }'
+    ```
+
+    Then check the dashboard - you should see your test error!
+  </Step>
+
+  <Step title="Verify database">
+    Check MongoDB has the data:
+
+    ```bash
+    # MongoDB shell
+    mongosh vij
+
+    # List collections
+    show collections
+
+    # Count logs
+    db.logs.countDocuments()
+
+    # View a log
+    db.logs.findOne()
+    ```
+  </Step>
+
+  <Step title="Test AI features (if configured)">
+    If you set `GEMINI_API_KEY`, click on a log entry and verify you see:
+    - AI Summary
+    - Possible Cause
+    - Suggested Fix
+
+    <Note>
+    AI analysis may take a few seconds on first load.
+    </Note>
+  </Step>
+</Steps>
+
+## Project Structure
+
+Understanding the VIJ Admin codebase:
+
+```
+vij-admin/
+├── app/                  # Next.js App Router
+│   ├── api/             # API routes
+│   ├── logs/            # Logs pages
+│   ├── groups/          # Groups pages
+│   └── page.tsx         # Dashboard home
+├── components/          # React components
+│   ├── ui/             # shadcn/ui components
+│   ├── Dashboard.tsx   # Dashboard component
+│   ├── LogsView.tsx    # Logs table
+│   └── ErrorDetails.tsx # Error detail view
+├── lib/                # Utilities
+│   ├── mongodb.ts      # Database connection
+│   ├── gemini.ts       # AI integration
+│   └── utils.ts        # Helper functions
+├── public/             # Static assets
+├── .env.local          # Environment config
+└── package.json        # Dependencies
+```
+
+## Customization
+
+### Theming
+
+VIJ Admin uses Tailwind CSS. Customize colors in `tailwind.config.js`:
+
+```javascript tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: "#3b82f6", // Your brand color
+          dark: "#2563eb"
+        }
+      }
+    }
+  }
+}
+```
+
+### Adding Custom Filters
+
+Extend filtering in `app/logs/page.tsx`:
+
+```typescript
+// Add custom filter option
+const customFilters = [
+  { label: "My App Only", value: "appId:my-app" },
+  { label: "Critical Errors", value: "severity:error" }
+];
+```
+
+### Custom Metadata Fields
+
+Display custom metadata in `components/ErrorDetails.tsx`:
+
+```typescript
+// Add custom metadata rendering
+{metadata.userId && (
+  <div>
+    <strong>User ID:</strong> {metadata.userId}
+  </div>
+)}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="MongoDB connection failed">
+    **Error**: `MongoServerError: connect ECONNREFUSED`
+
+    **Solutions**:
+    1. Verify MongoDB is running:
+       ```bash
+       # macOS
+       brew services list | grep mongodb
+
+       # Linux
+       sudo systemctl status mongodb
+
+       # Docker
+       docker ps | grep mongo
+       ```
+
+    2. Check connection string in `.env.local`
+    3. Verify firewall/network settings
+    4. For Atlas: Check IP whitelist
+  </Accordion>
+
+  <Accordion title="Module not found errors">
+    **Error**: `Module not found: Can't resolve 'X'`
+
+    **Solutions**:
+    ```bash
+    # Delete node_modules and reinstall
+    rm -rf node_modules package-lock.json
+    npm install
+
+    # Clear Next.js cache
+    rm -rf .next
+    npm run dev
+    ```
+  </Accordion>
+
+  <Accordion title="Environment variables not loading">
+    **Issue**: Environment variables undefined
+
+    **Solutions**:
+    1. Ensure file is named `.env.local` (not `.env`)
+    2. Restart dev server after changes
+    3. Use `NEXT_PUBLIC_` prefix for client-side variables
+    4. Check for typos in variable names
+  </Accordion>
+
+  <Accordion title="AI features not working">
+    **Issue**: No AI analysis appearing
+
+    **Solutions**:
+    1. Verify `GEMINI_API_KEY` is set
+    2. Check API key is valid on [ai.google.dev](https://ai.google.dev)
+    3. Check browser console for errors
+    4. Verify you have API quota available
+    5. Check server logs for AI-related errors
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    **Error**: `Port 3000 is already in use`
+
+    **Solutions**:
+    ```bash
+    # Use different port
+    PORT=3001 npm run dev
+
+    # Or kill process using port 3000
+    lsof -ti:3000 | xargs kill
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore all dashboard capabilities and features
+  </Card>
+  <Card title="Environment Variables" icon="key" href="/dashboard/environment-variables">
+    Complete environment variable reference
+  </Card>
+  <Card title="Deploy to Production" icon="rocket" href="/dashboard/deployment">
+    Deploy VIJ Admin to Vercel or your infrastructure
+  </Card>
+  <Card title="Integrate SDK" icon="code" href="/sdk/installation">
+    Add error tracking to your applications
+  </Card>
+</CardGroup>

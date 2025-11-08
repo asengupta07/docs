@@ -1,0 +1,711 @@
+---
+title: "Filtering and Search"
+description: "Master advanced filtering and search techniques in VIJ"
+---
+
+VIJ provides powerful filtering and search capabilities to help you find specific errors quickly, even with millions of log entries.
+
+## Quick Filters
+
+Access common filters with one click from the logs page.
+
+### Severity Filters
+
+Filter by error severity level:
+
+<Tabs>
+  <Tab title="Errors Only">
+    ```
+    severity=error
+    ```
+
+    Shows only critical errors requiring immediate attention.
+  </Tab>
+
+  <Tab title="Warnings">
+    ```
+    severity=warning
+    ```
+
+    Shows non-critical issues that should be investigated.
+  </Tab>
+
+  <Tab title="Info">
+    ```
+    severity=info
+    ```
+
+    Shows informational logs and messages.
+  </Tab>
+</Tabs>
+
+**UI**: Click severity badges at the top of the logs page.
+
+### Environment Filters
+
+Filter by deployment environment:
+
+```
+environment=production
+environment=staging
+environment=development
+```
+
+**Use Cases**:
+- Focus on production issues
+- Debug staging-specific problems
+- Exclude development noise
+
+### Application Filters
+
+Filter by application ID:
+
+```
+appId=my-frontend
+appId=my-backend
+appId=mobile-app
+```
+
+**Multi-select**: Combine multiple apps:
+
+```
+appId=my-frontend&appId=my-backend
+```
+
+## Advanced Filters
+
+Combine multiple filters for precise queries.
+
+### Filter Syntax
+
+```
+field=value
+field!=value
+field>value
+field<value
+field~value
+```
+
+**Operators**:
+- `=` - Exact match
+- `!=` - Not equal
+- `>` - Greater than (numbers, dates)
+- `<` - Less than (numbers, dates)
+- `~` - Contains (text)
+- `^` - Starts with
+- `$` - Ends with
+
+### Date/Time Filters
+
+Filter by timestamp:
+
+<CodeGroup>
+```url Absolute Dates
+startDate=2024-01-01T00:00:00Z
+endDate=2024-01-31T23:59:59Z
+```
+
+```url Relative Dates
+timestamp>now-24h
+timestamp<now-1h
+```
+
+```url Date Range
+timestamp>=2024-01-01&timestamp<=2024-01-31
+```
+</CodeGroup>
+
+**Relative time syntax**:
+- `now-1h` - One hour ago
+- `now-24h` - 24 hours ago
+- `now-7d` - 7 days ago
+- `now-30d` - 30 days ago
+
+### Metadata Filters
+
+Filter by custom metadata fields:
+
+```
+metadata.userId=user-123
+metadata.feature=checkout
+metadata.version=2.1.0
+metadata.region=us-east-1
+```
+
+**Nested fields**:
+```
+metadata.user.email=user@example.com
+metadata.request.statusCode=500
+```
+
+**Array fields**:
+```
+metadata.tags~error
+metadata.features~payment
+```
+
+### Context Filters
+
+Filter by browser or system context:
+
+<Tabs>
+  <Tab title="Browser">
+    ```
+    context.browser.platform=MacIntel
+    context.viewport.width>1920
+    context.network.effectiveType=4g
+    ```
+  </Tab>
+
+  <Tab title="Node.js">
+    ```
+    context.process.platform=linux
+    context.process.nodeVersion=v20.0.0
+    context.process.memory.heapUsed>50000000
+    ```
+  </Tab>
+</Tabs>
+
+## Combining Filters
+
+Combine multiple filters with `&`:
+
+```
+severity=error&environment=production&appId=my-app
+```
+
+**Complex queries**:
+```
+severity=error&environment=production&timestamp>now-24h&metadata.feature=checkout
+```
+
+**OR logic** (use multiple values):
+```
+appId=frontend&appId=backend
+severity=error&severity=warning
+```
+
+## Full-Text Search
+
+Search across error messages and stack traces.
+
+### Basic Search
+
+```
+search=TypeError
+search=cannot read property
+search=payment failed
+```
+
+**Search behavior**:
+- Case-insensitive
+- Searches `message` and `stack` fields
+- Uses MongoDB text index
+- Returns ranked results
+
+### Search Operators
+
+<Tabs>
+  <Tab title="Phrase Search">
+    ```
+    search="cannot read property"
+    ```
+
+    Exact phrase match (with quotes).
+  </Tab>
+
+  <Tab title="Exclude Terms">
+    ```
+    search=error -timeout
+    ```
+
+    Errors containing "error" but not "timeout".
+  </Tab>
+
+  <Tab title="OR Search">
+    ```
+    search=TypeError | ReferenceError
+    ```
+
+    Errors containing either term.
+  </Tab>
+
+  <Tab title="AND Search">
+    ```
+    search=payment + failed
+    ```
+
+    Errors containing both terms.
+  </Tab>
+</Tabs>
+
+### Search Examples
+
+<CodeGroup>
+```url Find Specific Error
+search="Cannot read property 'map' of undefined"
+```
+
+```url Find File
+search=checkout.js
+```
+
+```url Find Function
+search=processPayment
+```
+
+```url Multiple Terms
+search=payment failed stripe
+```
+</CodeGroup>
+
+## Search + Filter Combinations
+
+Combine search with filters for powerful queries:
+
+```
+search=TypeError&severity=error&environment=production&timestamp>now-24h
+```
+
+**Use Cases**:
+
+<Tabs>
+  <Tab title="Recent Production Errors">
+    ```
+    search=payment&severity=error&environment=production&timestamp>now-6h
+    ```
+  </Tab>
+
+  <Tab title="User-Specific Issues">
+    ```
+    search=checkout&metadata.userId=user-123&timestamp>now-7d
+    ```
+  </Tab>
+
+  <Tab title="Feature Errors">
+    ```
+    search=failed&metadata.feature=authentication&severity=error
+    ```
+  </Tab>
+
+  <Tab title="Browser-Specific">
+    ```
+    search=render&context.browser.userAgent~Chrome&severity=error
+    ```
+  </Tab>
+</Tabs>
+
+## Saved Filters
+
+Save frequently-used filters for quick access.
+
+### Creating Saved Filters
+
+```typescript
+// Example: Save filter preset
+const savedFilter = {
+  name: "Critical Production Errors",
+  query: "severity=error&environment=production&timestamp>now-24h",
+  description: "All critical errors from last 24h in production"
+};
+
+localStorage.setItem('savedFilters', JSON.stringify([savedFilter]));
+```
+
+**Common presets**:
+
+<AccordionGroup>
+  <Accordion title="Critical Production Errors">
+    ```
+    severity=error&environment=production&timestamp>now-24h
+    ```
+  </Accordion>
+
+  <Accordion title="Payment Errors">
+    ```
+    metadata.feature=payment&severity=error&timestamp>now-7d
+    ```
+  </Accordion>
+
+  <Accordion title="High-Frequency Errors">
+    ```
+    severity=error&count>100&timestamp>now-24h
+    ```
+  </Accordion>
+
+  <Accordion title="New Errors Today">
+    ```
+    firstSeen>now-24h&severity=error
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## URL-Based Filtering
+
+Filters are stored in the URL for easy sharing:
+
+```
+https://vij.example.com/logs?severity=error&environment=production&search=payment
+```
+
+**Benefits**:
+- Bookmark specific views
+- Share links with team
+- Browser back/forward works
+- Deep linkable
+
+**Share filter**:
+```bash
+# Copy current URL
+https://vij.example.com/logs?severity=error&timestamp>now-24h
+
+# Share with team
+Send this link to colleagues for the same filtered view
+```
+
+## Pagination and Sorting
+
+### Pagination
+
+```
+page=1&limit=50
+```
+
+**Parameters**:
+- `page` - Page number (1-indexed)
+- `limit` - Items per page (default: 50, max: 100)
+
+**Example**:
+```
+/logs?severity=error&page=2&limit=100
+```
+
+### Sorting
+
+```
+sortBy=timestamp&sortOrder=desc
+```
+
+**Sort fields**:
+- `timestamp` - When error occurred
+- `severity` - Error severity
+- `count` - Occurrence count (for groups)
+- `appId` - Application name
+- `environment` - Environment name
+
+**Sort orders**:
+- `asc` - Ascending
+- `desc` - Descending (default)
+
+**Examples**:
+```
+sortBy=timestamp&sortOrder=asc  # Oldest first
+sortBy=count&sortOrder=desc     # Most frequent first
+```
+
+## API Filtering
+
+Use filters programmatically via the API.
+
+### GET /api/logs
+
+```bash
+curl "https://vij.example.com/api/logs?severity=error&environment=production&limit=10"
+```
+
+**Query Parameters**:
+
+<ParamField query="severity" type="string">
+Filter by severity: `error`, `warning`, or `info`
+</ParamField>
+
+<ParamField query="environment" type="string">
+Filter by environment name
+</ParamField>
+
+<ParamField query="appId" type="string">
+Filter by application ID
+</ParamField>
+
+<ParamField query="search" type="string">
+Full-text search query
+</ParamField>
+
+<ParamField query="startDate" type="string">
+Filter by start date (ISO 8601)
+</ParamField>
+
+<ParamField query="endDate" type="string">
+Filter by end date (ISO 8601)
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+Page number for pagination
+</ParamField>
+
+<ParamField query="limit" type="number" default="50">
+Results per page (max: 100)
+</ParamField>
+
+### Response
+
+```json
+{
+  "logs": [
+    {
+      "_id": "65a1b2c3d4e5f6g7h8i9j0k1",
+      "message": "Payment processing failed",
+      "severity": "error",
+      "timestamp": "2024-01-01T12:00:00Z",
+      "appId": "my-app",
+      "environment": "production",
+      "metadata": {},
+      "context": {}
+    }
+  ],
+  "total": 1547,
+  "page": 1,
+  "limit": 50,
+  "pages": 31
+}
+```
+
+## Advanced Query Techniques
+
+### Regular Expression Search
+
+Use regex for complex patterns:
+
+```
+search=/error.*timeout/i
+search=/user_[0-9]+/
+```
+
+<Warning>
+Regex searches can be slow on large datasets. Use with caution.
+</Warning>
+
+### Aggregation Queries
+
+Count errors by field:
+
+```bash
+GET /api/logs/aggregate?groupBy=appId&severity=error
+```
+
+**Response**:
+```json
+{
+  "aggregations": [
+    { "appId": "frontend", "count": 1234 },
+    { "appId": "backend", "count": 567 },
+    { "appId": "mobile", "count": 89 }
+  ]
+}
+```
+
+### Time-Series Queries
+
+Get error counts over time:
+
+```bash
+GET /api/logs/timeseries?interval=1h&startDate=2024-01-01&endDate=2024-01-02
+```
+
+**Response**:
+```json
+{
+  "timeseries": [
+    { "timestamp": "2024-01-01T00:00:00Z", "count": 45 },
+    { "timestamp": "2024-01-01T01:00:00Z", "count": 67 },
+    { "timestamp": "2024-01-01T02:00:00Z", "count": 34 }
+  ]
+}
+```
+
+## Performance Optimization
+
+### Index Optimization
+
+VIJ creates these indexes for fast filtering:
+
+```javascript
+// Composite index for common queries
+{ appId: 1, environment: 1, timestamp: -1 }
+
+// Text index for search
+{ message: "text", stack: "text" }
+
+// Severity filtering
+{ severity: 1, timestamp: -1 }
+
+// Group filtering
+{ group: 1, timestamp: -1 }
+```
+
+### Query Tips
+
+<AccordionGroup>
+  <Accordion title="Use indexed fields first">
+    ```
+    # Good (uses index)
+    appId=my-app&timestamp>now-24h
+
+    # Slow (metadata not indexed)
+    metadata.customField=value
+    ```
+  </Accordion>
+
+  <Accordion title="Limit result sets">
+    ```
+    # Good
+    limit=50&page=1
+
+    # Slow (fetches all results)
+    limit=10000
+    ```
+  </Accordion>
+
+  <Accordion title="Use time ranges">
+    ```
+    # Good (scans less data)
+    timestamp>now-24h
+
+    # Slow (scans all data)
+    # No time filter
+    ```
+  </Accordion>
+
+  <Accordion title="Combine indexed fields">
+    ```
+    # Good (uses composite index)
+    appId=my-app&environment=production&timestamp>now-24h
+
+    # Less optimal
+    metadata.custom=value&timestamp>now-24h
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Filter UI Components
+
+### Filter Builder
+
+Visual filter builder in the dashboard:
+
+1. Click **Add Filter**
+2. Select field (severity, environment, appId, etc.)
+3. Choose operator (=, !=, >, <, ~)
+4. Enter value
+5. Click **Apply**
+
+### Quick Filter Pills
+
+Pre-built filter buttons:
+- Last Hour
+- Last 24 Hours
+- Last 7 Days
+- Last 30 Days
+- Errors Only
+- Production Only
+
+### Search Bar
+
+Autocomplete search bar with suggestions:
+- Recent searches
+- Popular errors
+- Suggested queries
+
+## Export Filtered Data
+
+Export filtered results:
+
+```bash
+# Export as JSON
+GET /api/logs/export?format=json&severity=error
+
+# Export as CSV
+GET /api/logs/export?format=csv&severity=error&environment=production
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start broad, then narrow">
+    ```
+    1. Start: severity=error
+    2. Add: environment=production
+    3. Add: timestamp>now-24h
+    4. Add: metadata.feature=checkout
+    ```
+  </Accordion>
+
+  <Accordion title="Use time ranges to reduce data">
+    Always include time filters:
+    ```
+    timestamp>now-24h  # Last 24 hours
+    timestamp>now-7d   # Last 7 days
+    ```
+  </Accordion>
+
+  <Accordion title="Bookmark common queries">
+    Save frequently-used filter URLs:
+    - Production errors
+    - Critical issues
+    - Specific features
+  </Accordion>
+
+  <Accordion title="Combine search and filters">
+    ```
+    search=payment&severity=error&environment=production&timestamp>now-6h
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Search returns no results">
+    **Check**:
+    - Text search is case-insensitive
+    - Check for typos
+    - Try broader search terms
+    - Verify time range includes results
+    - Check if other filters are too restrictive
+  </Accordion>
+
+  <Accordion title="Slow queries">
+    **Optimize**:
+    - Add time range filters
+    - Reduce result limit
+    - Use indexed fields
+    - Avoid regex on large datasets
+    - Consider adding custom indexes
+  </Accordion>
+
+  <Accordion title="Filters not working">
+    **Debug**:
+    - Check URL parameters
+    - Clear browser cache
+    - Check console for errors
+    - Verify field names
+    - Test in API directly
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Analytics" icon="chart-line" href="/advanced/analytics">
+    Analyze filtered data with visualizations
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Filter by error groups
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore all dashboard capabilities
+  </Card>
+  <Card title="API Reference" icon="webhook" href="/api-reference/logs/get">
+    Complete API filtering documentation
+  </Card>
+</CardGroup>

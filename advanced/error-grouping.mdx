@@ -1,0 +1,590 @@
+---
+title: "Error Grouping"
+description: "Understand how VIJ groups similar errors and implements fingerprinting"
+---
+
+VIJ automatically groups similar errors to help you identify patterns, reduce noise, and focus on unique issues rather than thousands of duplicate errors.
+
+## Why Error Grouping Matters
+
+Without error grouping, a single bug could generate thousands of individual error logs, making it impossible to:
+
+- Identify unique issues
+- Prioritize critical bugs
+- Understand error frequency
+- Track resolution progress
+
+**Example Problem**:
+```javascript
+// This bug generates 10,000 errors in production
+users.forEach(user => {
+  console.log(user.name.toUpperCase()); // TypeError if name is undefined
+});
+```
+
+**Without grouping**: 10,000 separate error entries
+**With grouping**: 1 error group with count of 10,000 occurrences
+
+## How Error Grouping Works
+
+VIJ uses **fingerprinting** to identify similar errors and group them together.
+
+### Fingerprint Generation
+
+A fingerprint is a unique hash generated from:
+
+1. **Error name** - The error type (`TypeError`, `ReferenceError`, etc.)
+2. **Normalized message** - Error message with dynamic values removed
+3. **Stack trace signature** - Top 3-5 stack frames
+
+```javascript
+// Example errors that get grouped together
+Error: User 123 not found       → fingerprint: "Error:User_not_found:fetchUser:api.js:45"
+Error: User 456 not found       → fingerprint: "Error:User_not_found:fetchUser:api.js:45"
+Error: User 789 not found       → fingerprint: "Error:User_not_found:fetchUser:api.js:45"
+```
+
+### Normalization Process
+
+Dynamic values are normalized to create consistent fingerprints:
+
+<Tabs>
+  <Tab title="Numbers">
+    ```javascript
+    // Original messages
+    "Order 12345 failed"
+    "Order 67890 failed"
+    "Order 11111 failed"
+
+    // Normalized
+    "Order <number> failed"
+
+    // Fingerprint includes
+    "Order_failed"
+    ```
+  </Tab>
+
+  <Tab title="UUIDs">
+    ```javascript
+    // Original messages
+    "User abc-123-def not found"
+    "User xyz-456-ghi not found"
+
+    // Normalized
+    "User <uuid> not found"
+
+    // Fingerprint includes
+    "User_not_found"
+    ```
+  </Tab>
+
+  <Tab title="Paths">
+    ```javascript
+    // Original messages
+    "Cannot read file /home/user/data.json"
+    "Cannot read file /home/admin/config.json"
+
+    // Normalized
+    "Cannot read file <path>"
+
+    // Fingerprint includes
+    "Cannot_read_file"
+    ```
+  </Tab>
+
+  <Tab title="Timestamps">
+    ```javascript
+    // Original messages
+    "Request timeout at 2024-01-01 12:00:00"
+    "Request timeout at 2024-01-01 12:05:00"
+
+    // Normalized
+    "Request timeout at <timestamp>"
+
+    // Fingerprint includes
+    "Request_timeout"
+    ```
+  </Tab>
+</Tabs>
+
+### Stack Trace Fingerprinting
+
+VIJ analyzes stack traces to identify the error's origin:
+
+```javascript
+// Stack trace
+Error: Payment failed
+    at processPayment (payment.js:45:12)      ← Frame 1 (most important)
+    at handleCheckout (checkout.js:123:5)     ← Frame 2
+    at onClick (Button.tsx:67:20)             ← Frame 3
+    at handleClick (react-dom.js:2345:10)     ← Frame 4 (library code)
+    at ... (more frames)
+
+// Fingerprint uses top 3 application frames
+"processPayment:payment.js:45"
+"handleCheckout:checkout.js:123"
+"onClick:Button.tsx:67"
+
+// Library code frames are excluded
+```
+
+**Why top frames matter most**:
+- Top frames show where the error originated
+- Middle frames show the call path
+- Bottom frames are usually library/framework code (less useful for grouping)
+
+## Grouping Algorithm
+
+The complete fingerprinting algorithm:
+
+```typescript
+function generateFingerprint(error: ErrorLog): string {
+  // 1. Extract error name
+  const errorName = error.name || 'Error';
+
+  // 2. Normalize message
+  const normalizedMessage = normalizeMessage(error.message);
+
+  // 3. Extract stack frames
+  const frames = parseStackTrace(error.stack);
+
+  // 4. Get top application frames (skip library code)
+  const appFrames = frames
+    .filter(frame => !isLibraryCode(frame))
+    .slice(0, 3);
+
+  // 5. Create stack signature
+  const stackSignature = appFrames
+    .map(frame => `${frame.function}:${frame.file}:${frame.line}`)
+    .join('|');
+
+  // 6. Combine into fingerprint
+  const fingerprint = `${errorName}:${normalizedMessage}:${stackSignature}`;
+
+  // 7. Hash for consistency
+  return hash(fingerprint);
+}
+
+function normalizeMessage(message: string): string {
+  return message
+    .replace(/\d+/g, '<number>')                    // Numbers
+    .replace(/[0-9a-f-]{36}/g, '<uuid>')           // UUIDs
+    .replace(/\/[\w\/.-]+/g, '<path>')             // File paths
+    .replace(/\d{4}-\d{2}-\d{2}/g, '<date>')       // Dates
+    .replace(/user_\w+|id_\w+/g, '<id>')           // IDs
+    .replace(/\s+/g, '_')                           // Normalize whitespace
+    .toLowerCase();
+}
+```
+
+## Viewing Error Groups
+
+### Groups Dashboard
+
+Navigate to `/groups` to view all error groups:
+
+<Frame>
+  <img src="/images/groups-dashboard-placeholder.png" alt="Error groups dashboard" />
+</Frame>
+
+**Information Displayed**:
+- **Error Message** - Representative message from the group
+- **Count** - Total occurrences
+- **First Seen** - When this error first appeared
+- **Last Seen** - Most recent occurrence
+- **Severity** - Highest severity in the group
+- **Affected Apps** - Which applications are impacted
+
+**Sorting Options**:
+- By count (most frequent first)
+- By recency (most recent first)
+- By first occurrence (oldest first)
+- By severity (critical first)
+
+### Group Details
+
+Click any group to see:
+
+1. **All occurrences** - Every instance of this error
+2. **Frequency chart** - Error rate over time
+3. **Affected users** - If user metadata is attached
+4. **Common metadata** - Shared context across occurrences
+
+**Example Use Case**:
+```
+Group: TypeError: Cannot read property 'name' of undefined
+Count: 2,547 occurrences
+First Seen: 3 days ago
+Last Seen: 2 minutes ago
+
+Common metadata:
+- Feature: checkout (95% of occurrences)
+- Browser: Chrome (78%), Safari (22%)
+- Environment: production (100%)
+```
+
+## Custom Grouping Strategies
+
+VIJ supports custom grouping for specific use cases.
+
+### Group by Metadata
+
+Group errors by custom metadata fields:
+
+```javascript
+// Capture errors with custom grouping key
+captureException(error, {
+  groupKey: "checkout-payment-error", // Custom group identifier
+  feature: "checkout",
+  step: "payment"
+});
+```
+
+### Manual Grouping
+
+Override automatic grouping:
+
+```javascript
+// Force errors into same group
+captureException(error1, {
+  fingerprint: "payment-processing-error"
+});
+
+captureException(error2, {
+  fingerprint: "payment-processing-error"
+});
+
+// These will be grouped together regardless of stack trace
+```
+
+<Tip>
+Use manual grouping when automatic grouping is too granular or when you want to track a specific error pattern.
+</Tip>
+
+### Group by Environment
+
+Separate errors by environment even if they're the same:
+
+```javascript
+// Production errors grouped separately from staging
+init({
+  appId: "my-app",
+  environment: "production" // Groups are environment-specific
+});
+```
+
+## Grouping Configuration
+
+Configure grouping behavior in VIJ Admin.
+
+### Group Merge Rules
+
+Define rules to merge groups:
+
+```javascript lib/grouping.ts
+export const groupingRules = [
+  {
+    name: "Network Errors",
+    pattern: /fetch failed|network error|connection refused/i,
+    mergeInto: "network-errors"
+  },
+  {
+    name: "Auth Errors",
+    pattern: /unauthorized|forbidden|authentication failed/i,
+    mergeInto: "auth-errors"
+  }
+];
+```
+
+### Stack Frame Filtering
+
+Exclude certain files from fingerprinting:
+
+```javascript
+const excludeFromFingerprint = [
+  'node_modules/',
+  'webpack/',
+  'react-dom',
+  'next/dist/'
+];
+```
+
+**Why exclude library code**:
+- Library code is the same across errors
+- Focus on application-specific code
+- More meaningful grouping
+
+### Group Size Limits
+
+Configure maximum group sizes:
+
+```javascript
+const groupingConfig = {
+  maxGroupSize: 10000,        // Split large groups
+  mergeThreshold: 0.85,       // Similarity threshold (0-1)
+  stackFrameDepth: 3,         // Number of frames to use
+  normalizeUrls: true,        // Normalize URLs in messages
+  normalizeNumbers: true      // Replace numbers with placeholders
+};
+```
+
+## Advanced Grouping Patterns
+
+### Similarity-Based Grouping
+
+Group errors by similarity score:
+
+```typescript
+function calculateSimilarity(error1: Error, error2: Error): number {
+  const messageSimilarity = levenshteinDistance(
+    error1.message,
+    error2.message
+  );
+
+  const stackSimilarity = compareStackTraces(
+    error1.stack,
+    error2.stack
+  );
+
+  return (messageSimilarity + stackSimilarity) / 2;
+}
+
+// Merge if similarity > 85%
+if (calculateSimilarity(error1, error2) > 0.85) {
+  mergeIntoSameGroup(error1, error2);
+}
+```
+
+### Machine Learning Grouping
+
+Use ML to identify error patterns:
+
+```python
+# Example: Use embeddings for error clustering
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+# Generate embeddings for error messages
+embeddings = model.encode([
+  "Payment failed for user 123",
+  "Payment failed for user 456",
+  "Database connection timeout"
+])
+
+# Cluster similar errors
+from sklearn.cluster import DBSCAN
+clusters = DBSCAN(eps=0.3, min_samples=2).fit(embeddings)
+```
+
+<Note>
+ML-based grouping is an advanced feature not included in the default VIJ installation but can be implemented as a custom extension.
+</Note>
+
+## Grouping Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use meaningful error messages">
+    **Good**:
+    ```javascript
+    throw new Error("Payment processing failed: invalid card");
+    throw new Error("User authentication failed: invalid token");
+    ```
+
+    **Bad**:
+    ```javascript
+    throw new Error("Error");
+    throw new Error("Something went wrong");
+    ```
+
+    Specific messages create better groups.
+  </Accordion>
+
+  <Accordion title="Include context in metadata, not messages">
+    **Good**:
+    ```javascript
+    captureException(
+      new Error("Payment failed"),
+      { userId: 123, orderId: 456 }
+    );
+    ```
+
+    **Bad**:
+    ```javascript
+    captureException(
+      new Error(`Payment failed for user ${userId} order ${orderId}`)
+    );
+    ```
+
+    Dynamic values in messages prevent proper grouping.
+  </Accordion>
+
+  <Accordion title="Use custom error classes">
+    ```javascript
+    class PaymentError extends Error {
+      constructor(message, code) {
+        super(message);
+        this.name = "PaymentError";
+        this.code = code;
+      }
+    }
+
+    throw new PaymentError("Card declined", "CARD_DECLINED");
+    ```
+
+    Custom error classes create distinct groups.
+  </Accordion>
+
+  <Accordion title="Review groups regularly">
+    - Check for over-grouping (unrelated errors grouped together)
+    - Check for under-grouping (same error split into multiple groups)
+    - Adjust normalization rules as needed
+    - Archive resolved groups
+  </Accordion>
+
+  <Accordion title="Use environment-specific grouping">
+    ```javascript
+    // Different environments, different groups
+    init({
+      appId: "my-app",
+      environment: process.env.NODE_ENV,
+      metadata: {
+        groupEnvironment: process.env.NODE_ENV
+      }
+    });
+    ```
+
+    Prevents production errors from mixing with development/staging.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting Grouping Issues
+
+<AccordionGroup>
+  <Accordion title="Errors not grouping as expected">
+    **Symptom**: Similar errors appearing as separate groups
+
+    **Causes**:
+    - Dynamic values in error messages
+    - Different stack traces
+    - Different error names
+
+    **Solutions**:
+    1. Use consistent error messages
+    2. Check stack trace consistency
+    3. Use custom fingerprinting
+    4. Review normalization rules
+
+    **Debug**:
+    ```javascript
+    // Log fingerprints to see why errors aren't grouping
+    console.log(generateFingerprint(error1));
+    console.log(generateFingerprint(error2));
+    ```
+  </Accordion>
+
+  <Accordion title="Too many groups">
+    **Symptom**: Hundreds of small groups instead of a few large ones
+
+    **Causes**:
+    - Unique error messages
+    - Different stack traces
+    - Over-specific fingerprinting
+
+    **Solutions**:
+    - Increase normalization (more aggressive pattern matching)
+    - Use custom grouping keys
+    - Merge related groups manually
+    - Reduce stack frame depth
+  </Accordion>
+
+  <Accordion title="Groups too large">
+    **Symptom**: Single group with thousands of unrelated errors
+
+    **Causes**:
+    - Generic error messages ("Error", "Something went wrong")
+    - Over-aggressive normalization
+    - Missing stack traces
+
+    **Solutions**:
+    - Use specific error messages
+    - Include stack traces
+    - Add more context to fingerprints
+    - Split large groups manually
+  </Accordion>
+
+  <Accordion title="Groups merging incorrectly">
+    **Symptom**: Unrelated errors in the same group
+
+    **Causes**:
+    - Overly aggressive normalization
+    - Similar but different errors
+    - Missing stack frame information
+
+    **Solutions**:
+    - Reduce normalization
+    - Use custom fingerprinting
+    - Include more stack frames
+    - Use metadata for additional grouping
+  </Accordion>
+</AccordionGroup>
+
+## Group Management
+
+### Archive Resolved Groups
+
+Mark groups as resolved:
+
+```javascript
+// In VIJ Admin
+POST /api/groups/:groupId/resolve
+{
+  "resolved": true,
+  "resolvedBy": "john@example.com",
+  "resolvedAt": "2024-01-01T12:00:00Z",
+  "resolution": "Fixed in commit abc123"
+}
+```
+
+### Split Groups
+
+Split a group into multiple groups:
+
+```javascript
+// Split by specific criteria
+POST /api/groups/:groupId/split
+{
+  "splitBy": "metadata.feature",
+  "createNewGroups": true
+}
+```
+
+### Merge Groups
+
+Combine multiple groups:
+
+```javascript
+// Merge groups manually
+POST /api/groups/merge
+{
+  "groupIds": ["group1", "group2", "group3"],
+  "newFingerprint": "custom-merged-group"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Filtering & Search" icon="filter" href="/advanced/filtering-search">
+    Advanced filtering and search techniques
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/advanced/analytics">
+    Analyze error trends and patterns
+  </Card>
+  <Card title="AI Integration" icon="brain" href="/advanced/ai-integration">
+    Use AI to analyze grouped errors
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore the error groups dashboard
+  </Card>
+</CardGroup>

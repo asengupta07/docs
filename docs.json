@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "VIJ",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#84cc16",
+    "light": "#a3e635",
+    "dark": "#65a30d"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -18,51 +18,53 @@
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "architecture"
             ]
           },
           {
-            "group": "Customization",
+            "group": "SDK",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "sdk/installation",
+              "sdk/configuration",
+              "sdk/capturing-errors",
+              "sdk/api-reference"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Dashboard",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "dashboard/setup",
+              "dashboard/features",
+              "dashboard/deployment",
+              "dashboard/environment-variables"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Advanced",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "advanced/error-grouping",
+              "advanced/ai-integration",
+              "advanced/filtering-search",
+              "advanced/analytics"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Ingestion API",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/logs/post",
+              "api-reference/logs/get"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Analytics API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/stats",
+              "api-reference/groups"
             ]
           }
         ]
@@ -71,14 +73,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub - SDK",
+          "href": "https://github.com/asengupta07/vij",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub - Admin",
+          "href": "https://github.com/asengupta07/vij-admin",
+          "icon": "github"
+        },
+        {
+          "anchor": "npm Package",
+          "href": "https://www.npmjs.com/package/vij-sdk",
+          "icon": "npm"
         }
       ]
     }
@@ -87,36 +94,9 @@
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/asengupta07"
     }
   }
 }

@@ -1,0 +1,627 @@
+---
+title: "GET /api/groups"
+description: "Retrieve grouped errors with occurrence counts"
+api: "GET https://vij.example.com/api/groups"
+---
+
+The GET `/api/groups` endpoint retrieves deduplicated error groups, showing unique errors with their occurrence counts and metadata.
+
+## Query Parameters
+
+<ParamField query="environment" type="string">
+Filter groups by environment.
+
+**Example**: `/api/groups?environment=production`
+</ParamField>
+
+<ParamField query="appId" type="string">
+Filter groups by application ID.
+
+**Example**: `/api/groups?appId=my-frontend-app`
+</ParamField>
+
+<ParamField query="severity" type="string">
+Filter by highest severity in the group.
+
+**Values**: `error`, `warning`, `info`
+
+**Example**: `/api/groups?severity=error`
+</ParamField>
+
+<ParamField query="startDate" type="string">
+Filter groups with occurrences after this date (ISO 8601).
+
+**Example**: `/api/groups?startDate=2024-01-01T00:00:00Z`
+</ParamField>
+
+<ParamField query="endDate" type="string">
+Filter groups with occurrences before this date (ISO 8601).
+
+**Example**: `/api/groups?endDate=2024-01-31T23:59:59Z`
+</ParamField>
+
+<ParamField query="minCount" type="number">
+Filter groups with at least this many occurrences.
+
+**Example**: `/api/groups?minCount=10`
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+Page number for pagination (1-indexed).
+
+**Example**: `/api/groups?page=2`
+</ParamField>
+
+<ParamField query="limit" type="number" default="50">
+Number of results per page (max: 100).
+
+**Example**: `/api/groups?limit=100`
+</ParamField>
+
+<ParamField query="sortBy" type="string" default="count">
+Field to sort by.
+
+**Values**: `count`, `lastSeen`, `firstSeen`, `severity`
+
+**Example**: `/api/groups?sortBy=lastSeen`
+</ParamField>
+
+<ParamField query="sortOrder" type="string" default="desc">
+Sort order.
+
+**Values**: `asc` (ascending), `desc` (descending)
+
+**Example**: `/api/groups?sortOrder=asc`
+</ParamField>
+
+## Response Fields
+
+<ResponseField name="groups" type="array">
+Array of error group objects.
+
+<Expandable title="Group object properties">
+  <ResponseField name="group" type="string">
+  Unique fingerprint hash identifying this error group.
+  </ResponseField>
+
+  <ResponseField name="message" type="string">
+  Representative error message from the group.
+  </ResponseField>
+
+  <ResponseField name="name" type="string">
+  Error name/type (e.g., `TypeError`, `ReferenceError`).
+  </ResponseField>
+
+  <ResponseField name="stack" type="string">
+  Representative stack trace from the group.
+  </ResponseField>
+
+  <ResponseField name="count" type="number">
+  Total number of occurrences in this group.
+  </ResponseField>
+
+  <ResponseField name="severity" type="string">
+  Highest severity level in the group: `error`, `warning`, or `info`.
+  </ResponseField>
+
+  <ResponseField name="firstSeen" type="string">
+  ISO 8601 timestamp of the first occurrence.
+  </ResponseField>
+
+  <ResponseField name="lastSeen" type="string">
+  ISO 8601 timestamp of the most recent occurrence.
+  </ResponseField>
+
+  <ResponseField name="affectedApps" type="array">
+  List of application IDs where this error occurred.
+  ```json
+  ["frontend", "mobile-app"]
+  ```
+  </ResponseField>
+
+  <ResponseField name="affectedEnvironments" type="array">
+  List of environments where this error occurred.
+  ```json
+  ["production", "staging"]
+  ```
+  </ResponseField>
+
+  <ResponseField name="affectedUsers" type="number">
+  Number of unique users affected (if userId in metadata).
+  </ResponseField>
+
+  <ResponseField name="recentOccurrences" type="array">
+  Sample of recent log IDs from this group (last 5).
+  ```json
+  ["65a1b2c3d4e5f6g7h8i9j0k1", "65a1b2c3d4e5f6g7h8i9j0k2"]
+  ```
+  </ResponseField>
+</Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="number">
+Total number of groups matching the query.
+</ResponseField>
+
+<ResponseField name="page" type="number">
+Current page number.
+</ResponseField>
+
+<ResponseField name="limit" type="number">
+Results per page.
+</ResponseField>
+
+<ResponseField name="pages" type="number">
+Total number of pages.
+</ResponseField>
+
+## Example Requests
+
+<CodeGroup>
+```bash All Error Groups
+curl "https://vij.example.com/api/groups"
+```
+
+```bash Production Errors
+curl "https://vij.example.com/api/groups?environment=production&severity=error"
+```
+
+```bash High-Frequency Errors
+curl "https://vij.example.com/api/groups?minCount=100&sortBy=count&sortOrder=desc"
+```
+
+```bash Recent Groups
+curl "https://vij.example.com/api/groups?sortBy=lastSeen&sortOrder=desc&limit=10"
+```
+
+```bash New Groups Today
+curl "https://vij.example.com/api/groups?startDate=$(date -u +%Y-%m-%dT00:00:00Z)"
+```
+</CodeGroup>
+
+## Example Response
+
+<ResponseExample>
+```json Success (200)
+{
+  "groups": [
+    {
+      "group": "abc123def456",
+      "message": "TypeError: Cannot read property 'map' of undefined",
+      "name": "TypeError",
+      "stack": "TypeError: Cannot read property 'map' of undefined\n    at processData (app.js:123:45)\n    at renderList (components/List.tsx:67:12)",
+      "count": 2547,
+      "severity": "error",
+      "firstSeen": "2024-01-01T10:00:00Z",
+      "lastSeen": "2024-01-03T14:30:00Z",
+      "affectedApps": ["frontend", "mobile-app"],
+      "affectedEnvironments": ["production"],
+      "affectedUsers": 456,
+      "recentOccurrences": [
+        "65a1b2c3d4e5f6g7h8i9j0k1",
+        "65a1b2c3d4e5f6g7h8i9j0k2",
+        "65a1b2c3d4e5f6g7h8i9j0k3"
+      ]
+    },
+    {
+      "group": "def456ghi789",
+      "message": "Payment processing failed",
+      "name": "Error",
+      "stack": "Error: Payment processing failed\n    at processPayment (payment.js:45:12)\n    at handleCheckout (checkout.js:123:5)",
+      "count": 1234,
+      "severity": "error",
+      "firstSeen": "2024-01-02T08:00:00Z",
+      "lastSeen": "2024-01-03T15:00:00Z",
+      "affectedApps": ["frontend"],
+      "affectedEnvironments": ["production", "staging"],
+      "affectedUsers": 234,
+      "recentOccurrences": [
+        "65a1b2c3d4e5f6g7h8i9j0k4",
+        "65a1b2c3d4e5f6g7h8i9j0k5"
+      ]
+    }
+  ],
+  "total": 347,
+  "page": 1,
+  "limit": 50,
+  "pages": 7
+}
+```
+</ResponseExample>
+
+## Use Cases
+
+### Dashboard Overview
+
+Display top error groups:
+
+```javascript
+const { groups } = await fetch(
+  'https://vij.example.com/api/groups?sortBy=count&sortOrder=desc&limit=10'
+).then(r => r.json());
+
+groups.forEach(group => {
+  console.log(`${group.message}: ${group.count} occurrences`);
+});
+```
+
+### Identify New Issues
+
+Find groups that appeared recently:
+
+```javascript
+const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+const { groups } = await fetch(
+  `https://vij.example.com/api/groups?startDate=${yesterday}&sortBy=firstSeen&sortOrder=desc`
+).then(r => r.json());
+
+// New error groups in last 24 hours
+console.log(`${groups.length} new error groups detected`);
+```
+
+### High-Impact Errors
+
+Find errors affecting many users:
+
+```javascript
+const { groups } = await fetch(
+  'https://vij.example.com/api/groups?minCount=100&sortBy=count&sortOrder=desc'
+).then(r => r.json());
+
+// High-frequency errors
+groups.forEach(group => {
+  console.log(`${group.message}: ${group.affectedUsers} users affected`);
+});
+```
+
+### Application Health
+
+Compare error groups across apps:
+
+```javascript
+const frontendGroups = await fetch(
+  'https://vij.example.com/api/groups?appId=frontend'
+).then(r => r.json());
+
+const backendGroups = await fetch(
+  'https://vij.example.com/api/groups?appId=backend-api'
+).then(r => r.json());
+
+console.log(`Frontend: ${frontendGroups.total} unique errors`);
+console.log(`Backend: ${backendGroups.total} unique errors`);
+```
+
+## Filtering Examples
+
+### By Frequency
+
+```bash
+# High-frequency errors (100+ occurrences)
+GET /api/groups?minCount=100
+
+# Low-frequency errors (1-10 occurrences)
+GET /api/groups?minCount=1&maxCount=10
+```
+
+### By Time
+
+```bash
+# Groups seen in last 24 hours
+startDate=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
+GET /api/groups?startDate=$startDate
+
+# Groups first seen this week
+startDate=$(date -u -d 'last monday' +%Y-%m-%dT00:00:00Z)
+GET /api/groups?startDate=$startDate&sortBy=firstSeen
+```
+
+### By Severity
+
+```bash
+# Critical errors only
+GET /api/groups?severity=error
+
+# All severities in production
+GET /api/groups?environment=production
+```
+
+### Combined Filters
+
+```bash
+# High-frequency production errors
+GET /api/groups?environment=production&severity=error&minCount=50&sortBy=count&sortOrder=desc
+
+# Recent low-frequency warnings
+GET /api/groups?severity=warning&minCount=1&maxCount=10&sortBy=lastSeen&sortOrder=desc
+```
+
+## Sorting Options
+
+### By Count (Most Frequent)
+
+```bash
+GET /api/groups?sortBy=count&sortOrder=desc
+```
+
+**Use Case**: Find the most impactful errors to fix first.
+
+### By Last Seen (Most Recent)
+
+```bash
+GET /api/groups?sortBy=lastSeen&sortOrder=desc
+```
+
+**Use Case**: Monitor active issues and recent deployments.
+
+### By First Seen (Newest Issues)
+
+```bash
+GET /api/groups?sortBy=firstSeen&sortOrder=desc
+```
+
+**Use Case**: Identify new bugs introduced recently.
+
+### By Severity
+
+```bash
+GET /api/groups?sortBy=severity&sortOrder=desc
+```
+
+**Use Case**: Prioritize critical errors over warnings.
+
+## Getting Group Details
+
+To get all occurrences of a specific group:
+
+```bash
+# Get group fingerprint from /api/groups
+group="abc123def456"
+
+# Fetch all occurrences
+curl "https://vij.example.com/api/logs?group=$group"
+```
+
+**Response**: All individual error logs in that group.
+
+## Pagination
+
+Navigate through large result sets:
+
+```javascript
+async function getAllGroups() {
+  let page = 1;
+  let allGroups = [];
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await fetch(
+      `https://vij.example.com/api/groups?page=${page}&limit=100`
+    ).then(r => r.json());
+
+    allGroups = allGroups.concat(response.groups);
+
+    hasMore = page < response.pages;
+    page++;
+  }
+
+  return allGroups;
+}
+```
+
+## Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Use time filters">
+    ```bash
+    # Good - last 30 days
+    startDate=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
+    GET /api/groups?startDate=$startDate
+
+    # Slow - all time
+    GET /api/groups
+    ```
+  </Accordion>
+
+  <Accordion title="Filter by app or environment">
+    ```bash
+    # Faster - single app
+    GET /api/groups?appId=my-app
+
+    # Slower - all apps
+    GET /api/groups
+    ```
+  </Accordion>
+
+  <Accordion title="Use minCount to reduce results">
+    ```bash
+    # Faster - high-frequency only
+    GET /api/groups?minCount=50
+
+    # Slower - includes one-off errors
+    GET /api/groups
+    ```
+  </Accordion>
+
+  <Accordion title="Limit page size appropriately">
+    ```bash
+    # Good for most cases
+    GET /api/groups?limit=50
+
+    # Use larger for batch processing
+    GET /api/groups?limit=100
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Client Implementation
+
+### TypeScript
+
+```typescript
+interface GroupsQuery {
+  environment?: string;
+  appId?: string;
+  severity?: 'error' | 'warning' | 'info';
+  startDate?: string;
+  endDate?: string;
+  minCount?: number;
+  page?: number;
+  limit?: number;
+  sortBy?: 'count' | 'lastSeen' | 'firstSeen' | 'severity';
+  sortOrder?: 'asc' | 'desc';
+}
+
+interface ErrorGroup {
+  group: string;
+  message: string;
+  name: string;
+  stack: string;
+  count: number;
+  severity: string;
+  firstSeen: string;
+  lastSeen: string;
+  affectedApps: string[];
+  affectedEnvironments: string[];
+  affectedUsers: number;
+  recentOccurrences: string[];
+}
+
+interface GroupsResponse {
+  groups: ErrorGroup[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+async function fetchGroups(query: GroupsQuery = {}): Promise<GroupsResponse> {
+  const params = new URLSearchParams(
+    Object.entries(query)
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => [k, String(v)])
+  );
+
+  const response = await fetch(
+    `https://vij.example.com/api/groups?${params}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// Usage
+const groups = await fetchGroups({
+  environment: 'production',
+  severity: 'error',
+  minCount: 10,
+  sortBy: 'count',
+  sortOrder: 'desc',
+  limit: 20
+});
+```
+
+### React Hook
+
+```typescript
+import { useState, useEffect } from 'react';
+
+function useErrorGroups(query: GroupsQuery) {
+  const [groups, setGroups] = useState<ErrorGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        const data = await fetchGroups(query);
+        setGroups(data.groups);
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, [JSON.stringify(query)]);
+
+  return { groups, loading, error };
+}
+
+// Usage in component
+function ErrorGroupsList() {
+  const { groups, loading, error } = useErrorGroups({
+    environment: 'production',
+    severity: 'error',
+    minCount: 10
+  });
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <ul>
+      {groups.map(group => (
+        <li key={group.group}>
+          {group.message} ({group.count} occurrences)
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Exporting Group Data
+
+Export groups for reporting:
+
+```bash
+# Export as JSON
+curl "https://vij.example.com/api/groups?environment=production" > groups.json
+
+# Export as CSV (requires custom endpoint or processing)
+curl "https://vij.example.com/api/groups/export?format=csv&environment=production" > groups.csv
+```
+
+## Monitoring Trends
+
+Track how groups change over time:
+
+```javascript
+// Daily group count tracking
+async function trackGroupTrends() {
+  const today = await fetch('/api/groups').then(r => r.json());
+  const yesterday = await fetch(
+    `/api/groups?endDate=${new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()}`
+  ).then(r => r.json());
+
+  const change = today.total - yesterday.total;
+  console.log(`Group change: ${change > 0 ? '+' : ''}${change}`);
+
+  if (change > 10) {
+    alert(`Warning: ${change} new error groups detected!`);
+  }
+}
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="GET /api/logs" icon="list" href="/api-reference/logs/get">
+    Get individual error logs by group
+  </Card>
+  <Card title="GET /api/stats" icon="chart-bar" href="/api-reference/stats">
+    Get statistics including group counts
+  </Card>
+  <Card title="Error Grouping" icon="layer-group" href="/advanced/error-grouping">
+    Learn how error grouping works
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    View groups in the dashboard
+  </Card>
+</CardGroup>

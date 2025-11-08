@@ -1,0 +1,796 @@
+---
+title: "Production Deployment"
+description: "Deploy VIJ Admin to production on Vercel, Docker, or your own infrastructure"
+---
+
+This guide covers deploying VIJ Admin to production environments, including Vercel, Docker, and self-hosted infrastructure.
+
+## Deployment Options
+
+<CardGroup cols={3}>
+  <Card title="Vercel" icon="rocket">
+    One-click deployment with zero configuration
+  </Card>
+  <Card title="Docker" icon="docker">
+    Containerized deployment for any infrastructure
+  </Card>
+  <Card title="Self-Hosted" icon="server">
+    Deploy on your own servers with full control
+  </Card>
+</CardGroup>
+
+## Deploy to Vercel
+
+Vercel provides the easiest deployment path for Next.js applications.
+
+<Steps>
+  <Step title="Prepare your repository">
+    Ensure your VIJ Admin code is in a Git repository (GitHub, GitLab, or Bitbucket):
+
+    ```bash
+    # If not already a git repo
+    git init
+    git add .
+    git commit -m "Initial commit"
+
+    # Push to GitHub
+    git remote add origin https://github.com/yourusername/vij-admin.git
+    git push -u origin main
+    ```
+  </Step>
+
+  <Step title="Connect to Vercel">
+    1. Go to [vercel.com](https://vercel.com) and sign in
+    2. Click **Add New Project**
+    3. Import your VIJ Admin repository
+    4. Select the repository and click **Import**
+  </Step>
+
+  <Step title="Configure environment variables">
+    In the Vercel project settings, add environment variables:
+
+    **Required Variables**:
+    ```bash
+    MONGODB_URI=your_mongodb_connection_string
+    NEXT_PUBLIC_BASE_URL=https://your-project.vercel.app
+    ```
+
+    **Optional Variables**:
+    ```bash
+    GEMINI_API_KEY=your_gemini_api_key
+    ```
+
+    <Warning>
+    Use MongoDB Atlas or another cloud MongoDB provider. Vercel cannot connect to localhost.
+    </Warning>
+  </Step>
+
+  <Step title="Deploy">
+    Click **Deploy** and wait for the build to complete.
+
+    <Check>
+    Your VIJ Admin dashboard will be live at `https://your-project.vercel.app`
+    </Check>
+  </Step>
+
+  <Step title="Configure custom domain (optional)">
+    1. Go to **Settings** → **Domains**
+    2. Add your custom domain (e.g., `vij.yourdomain.com`)
+    3. Update DNS records as instructed
+    4. Update `NEXT_PUBLIC_BASE_URL` environment variable
+
+    ```bash
+    NEXT_PUBLIC_BASE_URL=https://vij.yourdomain.com
+    ```
+  </Step>
+</Steps>
+
+### Vercel Configuration
+
+Create `vercel.json` for advanced configuration:
+
+```json vercel.json
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "MONGODB_URI": "@mongodb-uri",
+    "GEMINI_API_KEY": "@gemini-api-key"
+  }
+}
+```
+
+### Vercel Environment Variables
+
+<ParamField path="MONGODB_URI" type="string" required>
+MongoDB Atlas connection string.
+
+**Example**:
+```bash
+mongodb+srv://username:password@cluster.mongodb.net/vij?retryWrites=true&w=majority
+```
+
+**Getting Started with MongoDB Atlas**:
+1. Create free account at [mongodb.com/atlas](https://www.mongodb.com/atlas)
+2. Create a cluster (free tier available)
+3. Add Vercel IP addresses to IP whitelist (or use `0.0.0.0/0` for all IPs)
+4. Create database user
+5. Get connection string
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_BASE_URL" type="string" required>
+Your Vercel deployment URL.
+
+```bash
+# Auto-assigned Vercel URL
+NEXT_PUBLIC_BASE_URL=https://your-project.vercel.app
+
+# Custom domain
+NEXT_PUBLIC_BASE_URL=https://vij.yourdomain.com
+```
+</ParamField>
+
+<Tip>
+Vercel automatically redeploys on every push to your main branch. Use preview deployments for testing.
+</Tip>
+
+## Docker Deployment
+
+Deploy VIJ Admin using Docker for consistent, portable deployments.
+
+### Dockerfile
+
+Create a `Dockerfile` in your project root:
+
+```dockerfile Dockerfile
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build Next.js app
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Set production environment
+ENV NODE_ENV=production
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy built application
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+# Change ownership
+RUN chown -R nextjs:nodejs /app
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
+EXPOSE 3000
+
+# Set hostname
+ENV HOSTNAME="0.0.0.0"
+
+# Start application
+CMD ["node", "server.js"]
+```
+
+### Docker Compose
+
+Create `docker-compose.yml` for local development or deployment:
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  vij-admin:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/vij
+      - NEXT_PUBLIC_BASE_URL=http://localhost:3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+```
+
+### Build and Run
+
+<Steps>
+  <Step title="Build Docker image">
+    ```bash
+    docker build -t vij-admin:latest .
+    ```
+  </Step>
+
+  <Step title="Run with Docker Compose">
+    ```bash
+    # Create .env file
+    echo "GEMINI_API_KEY=your_key_here" > .env
+
+    # Start services
+    docker-compose up -d
+    ```
+
+    <Check>
+    VIJ Admin will be available at [http://localhost:3000](http://localhost:3000)
+    </Check>
+  </Step>
+
+  <Step title="View logs">
+    ```bash
+    # View all logs
+    docker-compose logs -f
+
+    # View VIJ Admin logs only
+    docker-compose logs -f vij-admin
+    ```
+  </Step>
+
+  <Step title="Stop services">
+    ```bash
+    docker-compose down
+
+    # Remove volumes (deletes data)
+    docker-compose down -v
+    ```
+  </Step>
+</Steps>
+
+### Production Docker Deployment
+
+For production, use environment-specific compose files:
+
+```yaml docker-compose.prod.yml
+version: '3.8'
+
+services:
+  vij-admin:
+    image: vij-admin:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/logs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+Deploy:
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## Self-Hosted Deployment
+
+Deploy VIJ Admin on your own infrastructure.
+
+### Prerequisites
+
+- **Node.js 18+** installed
+- **MongoDB 5.0+** running
+- **Nginx or Apache** for reverse proxy (recommended)
+- **PM2 or systemd** for process management
+
+### Deployment Steps
+
+<Steps>
+  <Step title="Prepare the server">
+    ```bash
+    # Update system
+    sudo apt update && sudo apt upgrade -y
+
+    # Install Node.js 20
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt install -y nodejs
+
+    # Install MongoDB
+    # See: https://www.mongodb.com/docs/manual/installation/
+
+    # Install PM2
+    sudo npm install -g pm2
+    ```
+  </Step>
+
+  <Step title="Clone and build">
+    ```bash
+    # Clone repository
+    git clone https://github.com/asengupta07/vij-admin.git
+    cd vij-admin
+
+    # Install dependencies
+    npm ci --production
+
+    # Create environment file
+    cat > .env.local << EOF
+    MONGODB_URI=mongodb://localhost:27017/vij
+    NEXT_PUBLIC_BASE_URL=https://vij.yourdomain.com
+    GEMINI_API_KEY=your_api_key
+    EOF
+
+    # Build application
+    npm run build
+    ```
+  </Step>
+
+  <Step title="Start with PM2">
+    ```bash
+    # Start application
+    pm2 start npm --name "vij-admin" -- start
+
+    # Save PM2 configuration
+    pm2 save
+
+    # Setup PM2 to start on boot
+    pm2 startup
+    ```
+
+    <Check>
+    VIJ Admin is now running on port 3000
+    </Check>
+  </Step>
+
+  <Step title="Configure Nginx reverse proxy">
+    Create Nginx configuration:
+
+    ```nginx /etc/nginx/sites-available/vij-admin
+    server {
+        listen 80;
+        server_name vij.yourdomain.com;
+
+        location / {
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+    ```
+
+    Enable site:
+    ```bash
+    sudo ln -s /etc/nginx/sites-available/vij-admin /etc/nginx/sites-enabled/
+    sudo nginx -t
+    sudo systemctl reload nginx
+    ```
+  </Step>
+
+  <Step title="Setup SSL with Certbot">
+    ```bash
+    # Install Certbot
+    sudo apt install certbot python3-certbot-nginx
+
+    # Get SSL certificate
+    sudo certbot --nginx -d vij.yourdomain.com
+
+    # Auto-renewal is configured automatically
+    ```
+
+    <Check>
+    Your VIJ Admin is now accessible at `https://vij.yourdomain.com`
+    </Check>
+  </Step>
+</Steps>
+
+### PM2 Configuration
+
+Create `ecosystem.config.js`:
+
+```javascript ecosystem.config.js
+module.exports = {
+  apps: [{
+    name: 'vij-admin',
+    script: 'npm',
+    args: 'start',
+    cwd: '/path/to/vij-admin',
+    instances: 2,
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    },
+    error_file: '/var/log/vij-admin/error.log',
+    out_file: '/var/log/vij-admin/out.log',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    merge_logs: true,
+    autorestart: true,
+    max_memory_restart: '1G'
+  }]
+};
+```
+
+Start with configuration:
+```bash
+pm2 start ecosystem.config.js
+```
+
+### Systemd Service (Alternative to PM2)
+
+Create systemd service file:
+
+```ini /etc/systemd/system/vij-admin.service
+[Unit]
+Description=VIJ Admin Dashboard
+After=network.target mongodb.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/vij-admin
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/vij-admin/.env.local
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl enable vij-admin
+sudo systemctl start vij-admin
+sudo systemctl status vij-admin
+```
+
+## Kubernetes Deployment
+
+Deploy VIJ Admin on Kubernetes clusters.
+
+### Kubernetes Manifests
+
+```yaml k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vij-admin
+  labels:
+    app: vij-admin
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vij-admin
+  template:
+    metadata:
+      labels:
+        app: vij-admin
+    spec:
+      containers:
+      - name: vij-admin
+        image: vij-admin:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: vij-secrets
+              key: mongodb-uri
+        - name: NEXT_PUBLIC_BASE_URL
+          value: "https://vij.yourdomain.com"
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: vij-secrets
+              key: gemini-api-key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/logs
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/logs
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vij-admin
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: vij-admin
+```
+
+```yaml k8s/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vij-secrets
+type: Opaque
+stringData:
+  mongodb-uri: "mongodb+srv://user:pass@cluster.mongodb.net/vij"
+  gemini-api-key: "your_api_key_here"
+```
+
+Deploy to Kubernetes:
+```bash
+kubectl apply -f k8s/secrets.yaml
+kubectl apply -f k8s/deployment.yaml
+```
+
+## Post-Deployment
+
+### Health Checks
+
+Verify your deployment is healthy:
+
+```bash
+# Check API endpoint
+curl https://vij.yourdomain.com/api/logs
+
+# Should return method not allowed (GET)
+# {"error":"Method not allowed"}
+
+# Test POST endpoint
+curl -X POST https://vij.yourdomain.com/api/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Test",
+    "name": "Error",
+    "stack": "Error: Test",
+    "severity": "info",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "appId": "test",
+    "environment": "production",
+    "metadata": {},
+    "context": {}
+  }'
+
+# Should return success
+```
+
+### Monitoring
+
+Set up monitoring for your VIJ Admin instance:
+
+<Tabs>
+  <Tab title="Uptime Monitoring">
+    Use services like UptimeRobot or Pingdom:
+
+    **Monitor URL**: `https://vij.yourdomain.com`
+
+    **Check interval**: 5 minutes
+
+    **Alert on**: Status code != 200
+  </Tab>
+
+  <Tab title="Application Monitoring">
+    Monitor PM2 processes:
+
+    ```bash
+    # View status
+    pm2 status
+
+    # View logs
+    pm2 logs vij-admin
+
+    # Monitor metrics
+    pm2 monit
+    ```
+  </Tab>
+
+  <Tab title="Database Monitoring">
+    Monitor MongoDB:
+
+    ```bash
+    # MongoDB stats
+    mongosh vij --eval "db.stats()"
+
+    # Collection size
+    mongosh vij --eval "db.logs.stats()"
+
+    # Index usage
+    mongosh vij --eval "db.logs.aggregate([{$indexStats:{}}])"
+    ```
+  </Tab>
+</Tabs>
+
+### Backup Strategy
+
+Implement regular backups:
+
+```bash backup.sh
+#!/bin/bash
+
+# Backup MongoDB
+mongodump --uri="$MONGODB_URI" --out="/backups/$(date +%Y%m%d)"
+
+# Compress backup
+tar -czf "/backups/vij-$(date +%Y%m%d).tar.gz" "/backups/$(date +%Y%m%d)"
+
+# Remove old backups (keep 30 days)
+find /backups -name "vij-*.tar.gz" -mtime +30 -delete
+
+# Upload to S3 (optional)
+aws s3 cp "/backups/vij-$(date +%Y%m%d).tar.gz" s3://your-bucket/backups/
+```
+
+Schedule with cron:
+```bash
+# Run daily at 2 AM
+0 2 * * * /path/to/backup.sh
+```
+
+### Security Considerations
+
+<AccordionGroup>
+  <Accordion title="Enable authentication">
+    Add authentication middleware to protect your VIJ instance:
+
+    ```javascript middleware.ts
+    import { NextResponse } from 'next/server';
+    import type { NextRequest } from 'next/server';
+
+    export function middleware(request: NextRequest) {
+      const basicAuth = request.headers.get('authorization');
+
+      if (basicAuth) {
+        const authValue = basicAuth.split(' ')[1];
+        const [user, pwd] = atob(authValue).split(':');
+
+        if (user === 'admin' && pwd === process.env.ADMIN_PASSWORD) {
+          return NextResponse.next();
+        }
+      }
+
+      return new NextResponse('Authentication required', {
+        status: 401,
+        headers: {
+          'WWW-Authenticate': 'Basic realm="Secure Area"'
+        }
+      });
+    }
+
+    export const config = {
+      matcher: ['/logs/:path*', '/groups/:path*', '/']
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Use HTTPS only">
+    Force HTTPS in production:
+
+    ```nginx
+    # Nginx - redirect HTTP to HTTPS
+    server {
+        listen 80;
+        server_name vij.yourdomain.com;
+        return 301 https://$server_name$request_uri;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Restrict MongoDB access">
+    - Use MongoDB authentication
+    - Whitelist IP addresses
+    - Use SSL/TLS for connections
+    - Enable audit logging
+
+    ```bash
+    # MongoDB connection with SSL
+    MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/vij?ssl=true&authSource=admin
+    ```
+  </Accordion>
+
+  <Accordion title="Environment variable security">
+    - Never commit `.env.local` to version control
+    - Use secret management (AWS Secrets Manager, Vault)
+    - Rotate API keys regularly
+    - Use environment-specific keys
+
+    ```bash .gitignore
+    .env.local
+    .env.*.local
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Scaling
+
+### Horizontal Scaling
+
+VIJ Admin can be horizontally scaled:
+
+```yaml
+# Kubernetes - increase replicas
+replicas: 5
+
+# Docker Swarm
+docker service scale vij-admin=5
+
+# PM2 cluster mode
+pm2 start ecosystem.config.js -i max
+```
+
+### Database Optimization
+
+For high-traffic deployments:
+
+```javascript
+// Add connection pooling
+MONGODB_URI=mongodb://host/vij?maxPoolSize=50&minPoolSize=10
+
+// Enable read preference
+MONGODB_URI=mongodb://host/vij?readPreference=secondaryPreferred
+
+// Use replica sets
+MONGODB_URI=mongodb://host1,host2,host3/vij?replicaSet=rs0
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="key" href="/dashboard/environment-variables">
+    Complete environment configuration reference
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore all dashboard capabilities
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/advanced/analytics">
+    Set up monitoring and analytics
+  </Card>
+  <Card title="Security" icon="shield" href="/dashboard/security">
+    Implement authentication and security
+  </Card>
+</CardGroup>

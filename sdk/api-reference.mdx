@@ -1,0 +1,728 @@
+---
+title: "SDK API Reference"
+description: "Complete API reference for vij-sdk functions and types"
+---
+
+This page documents all exported functions, types, and interfaces in vij-sdk.
+
+## Functions
+
+### init()
+
+Initialize the VIJ SDK with configuration options. Must be called before using other SDK functions.
+
+```typescript
+init(options: InitOptions): void
+```
+
+<ParamField path="options" type="InitOptions" required>
+Configuration object for the SDK. See [Configuration Guide](/sdk/configuration) for detailed documentation.
+</ParamField>
+
+**Example**:
+```javascript
+import { init } from "vij-sdk";
+
+init({
+  endpoint: "https://vij.example.com/api/logs",
+  appId: "my-app",
+  environment: "production",
+  batch: true,
+  maxBatchSize: 20,
+  flushIntervalMs: 5000,
+  maxQueueSize: 100,
+  metadata: {
+    version: "1.0.0"
+  }
+});
+```
+
+<Warning>
+Call `init()` once at application startup, before any other VIJ functions. Calling it multiple times will reinitialize the SDK and may cause data loss.
+</Warning>
+
+---
+
+### captureException()
+
+Capture and send an error to VIJ Admin.
+
+```typescript
+captureException(
+  error: Error,
+  metadata?: Record<string, any>,
+  severity?: Severity
+): void
+```
+
+<ParamField path="error" type="Error" required>
+The error object to capture. Must have `name`, `message`, and `stack` properties.
+</ParamField>
+
+<ParamField path="metadata" type="Record<string, any>">
+Optional metadata to attach to this error. Merged with global metadata from `init()`.
+</ParamField>
+
+<ParamField path="severity" type="Severity" default="error">
+Severity level: `"error"`, `"warning"`, or `"info"`.
+</ParamField>
+
+**Example**:
+```javascript
+import { captureException } from "vij-sdk";
+
+try {
+  throw new Error("Payment processing failed");
+} catch (error) {
+  captureException(error, {
+    userId: "user-123",
+    orderId: "order-456",
+    amount: 99.99
+  }, "error");
+}
+```
+
+**Returns**: `void`
+
+---
+
+### captureMessage()
+
+Capture and send a custom log message to VIJ Admin.
+
+```typescript
+captureMessage(
+  message: string,
+  metadata?: Record<string, any>,
+  severity?: Severity
+): void
+```
+
+<ParamField path="message" type="string" required>
+The log message to capture.
+</ParamField>
+
+<ParamField path="metadata" type="Record<string, any>">
+Optional metadata to attach to this message.
+</ParamField>
+
+<ParamField path="severity" type="Severity" default="info">
+Severity level: `"error"`, `"warning"`, or `"info"`.
+</ParamField>
+
+**Example**:
+```javascript
+import { captureMessage } from "vij-sdk";
+
+captureMessage("User logged in", {
+  userId: "user-123",
+  loginMethod: "oauth",
+  timestamp: Date.now()
+}, "info");
+```
+
+**Returns**: `void`
+
+---
+
+### flush()
+
+Immediately flush all queued logs to the server, bypassing batch settings.
+
+```typescript
+flush(): Promise<void>
+```
+
+**Example**:
+```javascript
+import { flush } from "vij-sdk";
+
+// Ensure all logs are sent before page unload
+window.addEventListener("beforeunload", async () => {
+  await flush();
+});
+```
+
+**Returns**: `Promise<void>` - Resolves when all logs are sent
+
+<Tip>
+Useful for ensuring logs are sent before page navigation, process exit, or application shutdown.
+</Tip>
+
+---
+
+### setMetadata()
+
+Update global metadata that will be attached to all future logs.
+
+```typescript
+setMetadata(metadata: Record<string, any>): void
+```
+
+<ParamField path="metadata" type="Record<string, any>" required>
+Metadata object to merge with existing global metadata.
+</ParamField>
+
+**Example**:
+```javascript
+import { setMetadata } from "vij-sdk";
+
+// Set initial metadata
+init({
+  endpoint: "...",
+  appId: "...",
+  environment: "production",
+  metadata: { version: "1.0.0" }
+});
+
+// Update metadata after user login
+function onUserLogin(user) {
+  setMetadata({
+    userId: user.id,
+    userEmail: user.email,
+    userPlan: user.plan
+  });
+}
+
+// All subsequent logs will include user information
+```
+
+**Returns**: `void`
+
+<Note>
+Metadata set via `setMetadata()` is merged with metadata passed to `init()`. Later values override earlier ones.
+</Note>
+
+---
+
+### clearMetadata()
+
+Remove specific keys from global metadata.
+
+```typescript
+clearMetadata(keys: string[]): void
+```
+
+<ParamField path="keys" type="string[]" required>
+Array of metadata keys to remove.
+</ParamField>
+
+**Example**:
+```javascript
+import { setMetadata, clearMetadata } from "vij-sdk";
+
+// Set user metadata on login
+setMetadata({ userId: "user-123", userEmail: "user@example.com" });
+
+// Clear user metadata on logout
+clearMetadata(["userId", "userEmail"]);
+```
+
+**Returns**: `void`
+
+---
+
+### getMetadata()
+
+Retrieve the current global metadata object.
+
+```typescript
+getMetadata(): Record<string, any>
+```
+
+**Example**:
+```javascript
+import { getMetadata } from "vij-sdk";
+
+const currentMetadata = getMetadata();
+console.log(currentMetadata);
+// { version: "1.0.0", userId: "user-123" }
+```
+
+**Returns**: `Record<string, any>` - Current global metadata
+
+---
+
+## Types
+
+### InitOptions
+
+Configuration options for the `init()` function.
+
+```typescript
+interface InitOptions {
+  endpoint: string;
+  appId: string;
+  environment: string;
+  batch?: boolean;
+  maxBatchSize?: number;
+  flushIntervalMs?: number;
+  maxQueueSize?: number;
+  metadata?: Record<string, any>;
+}
+```
+
+<ParamField path="endpoint" type="string" required>
+VIJ Admin API endpoint URL (e.g., `https://vij.example.com/api/logs`)
+</ParamField>
+
+<ParamField path="appId" type="string" required>
+Unique identifier for your application
+</ParamField>
+
+<ParamField path="environment" type="string" required>
+Environment name (e.g., `production`, `staging`, `development`)
+</ParamField>
+
+<ParamField path="batch" type="boolean" default="true">
+Enable batching of logs
+</ParamField>
+
+<ParamField path="maxBatchSize" type="number" default="10">
+Maximum logs per batch (1-100)
+</ParamField>
+
+<ParamField path="flushIntervalMs" type="number" default="5000">
+Batch flush interval in milliseconds (1000-60000)
+</ParamField>
+
+<ParamField path="maxQueueSize" type="number" default="100">
+Maximum queue size before dropping old logs (10-1000)
+</ParamField>
+
+<ParamField path="metadata" type="Record<string, any>" default="{}">
+Global metadata attached to all logs
+</ParamField>
+
+**Example**:
+```typescript
+import { type InitOptions } from "vij-sdk";
+
+const config: InitOptions = {
+  endpoint: process.env.VIJ_ENDPOINT!,
+  appId: "my-app",
+  environment: process.env.NODE_ENV,
+  batch: true,
+  maxBatchSize: 20,
+  flushIntervalMs: 5000,
+  maxQueueSize: 100,
+  metadata: {
+    version: "1.0.0",
+    region: "us-east-1"
+  }
+};
+```
+
+---
+
+### Severity
+
+Severity level for errors and messages.
+
+```typescript
+type Severity = "error" | "warning" | "info";
+```
+
+**Values**:
+- `"error"` - Critical errors requiring immediate attention
+- `"warning"` - Non-critical issues that should be investigated
+- `"info"` - Informational logs for tracking behavior
+
+**Example**:
+```typescript
+import { captureException, type Severity } from "vij-sdk";
+
+function logError(error: Error, level: Severity) {
+  captureException(error, {}, level);
+}
+
+logError(new Error("Critical failure"), "error");
+logError(new Error("Deprecated API used"), "warning");
+```
+
+---
+
+### LogEntry
+
+Structure of a log entry sent to VIJ Admin.
+
+```typescript
+interface LogEntry {
+  message: string;
+  name: string;
+  stack: string;
+  severity: Severity;
+  timestamp: string;
+  appId: string;
+  environment: string;
+  metadata: Record<string, any>;
+  context: BrowserContext | NodeContext;
+}
+```
+
+<ResponseField name="message" type="string">
+Error message or custom log message
+</ResponseField>
+
+<ResponseField name="name" type="string">
+Error name (e.g., `Error`, `TypeError`, `CustomError`)
+</ResponseField>
+
+<ResponseField name="stack" type="string">
+Stack trace of the error
+</ResponseField>
+
+<ResponseField name="severity" type="Severity">
+Severity level: `error`, `warning`, or `info`
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+ISO 8601 timestamp when the error was captured
+</ResponseField>
+
+<ResponseField name="appId" type="string">
+Application identifier from `init()`
+</ResponseField>
+
+<ResponseField name="environment" type="string">
+Environment name from `init()`
+</ResponseField>
+
+<ResponseField name="metadata" type="Record<string, any>">
+Merged global and per-error metadata
+</ResponseField>
+
+<ResponseField name="context" type="BrowserContext | NodeContext">
+Automatically collected contextual information
+</ResponseField>
+
+<Note>
+You don't create `LogEntry` objects directly. The SDK generates them automatically when you call `captureException()` or `captureMessage()`.
+</Note>
+
+---
+
+### BrowserContext
+
+Contextual information collected in browser environments.
+
+```typescript
+interface BrowserContext {
+  viewport: {
+    width: number;
+    height: number;
+  };
+  screen: {
+    width: number;
+    height: number;
+    colorDepth: number;
+  };
+  browser: {
+    userAgent: string;
+    language: string;
+    platform: string;
+    cookieEnabled: boolean;
+    doNotTrack: string | null;
+  };
+  network?: {
+    effectiveType: string;
+    downlink: number;
+    rtt: number;
+  };
+}
+```
+
+**Example**:
+```json
+{
+  "viewport": { "width": 1920, "height": 1080 },
+  "screen": { "width": 1920, "height": 1080, "colorDepth": 24 },
+  "browser": {
+    "userAgent": "Mozilla/5.0...",
+    "language": "en-US",
+    "platform": "MacIntel",
+    "cookieEnabled": true,
+    "doNotTrack": "1"
+  },
+  "network": {
+    "effectiveType": "4g",
+    "downlink": 10,
+    "rtt": 50
+  }
+}
+```
+
+---
+
+### NodeContext
+
+Contextual information collected in Node.js environments.
+
+```typescript
+interface NodeContext {
+  process: {
+    pid: number;
+    platform: string;
+    arch: string;
+    nodeVersion: string;
+    uptime: number;
+    memory: {
+      rss: number;
+      heapTotal: number;
+      heapUsed: number;
+      external: number;
+    };
+  };
+}
+```
+
+**Example**:
+```json
+{
+  "process": {
+    "pid": 12345,
+    "platform": "linux",
+    "arch": "x64",
+    "nodeVersion": "v20.0.0",
+    "uptime": 3600,
+    "memory": {
+      "rss": 50000000,
+      "heapTotal": 30000000,
+      "heapUsed": 20000000,
+      "external": 1000000
+    }
+  }
+}
+```
+
+---
+
+## Advanced Usage
+
+### Manual Queue Management
+
+```javascript
+import { captureException, flush } from "vij-sdk";
+
+// Capture errors
+captureException(error1, { feature: "checkout" });
+captureException(error2, { feature: "payment" });
+
+// Manually flush queue before critical operation
+await flush();
+
+// Continue with critical operation
+await criticalOperation();
+```
+
+### Dynamic Metadata Updates
+
+```javascript
+import { setMetadata, clearMetadata, captureException } from "vij-sdk";
+
+// User logs in
+function onLogin(user) {
+  setMetadata({
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    loginTime: new Date().toISOString()
+  });
+}
+
+// User logs out
+function onLogout() {
+  clearMetadata(["userId", "userEmail", "userRole", "loginTime"]);
+}
+
+// Feature flag changes
+function onFeatureFlagChange(flags) {
+  setMetadata({ featureFlags: flags });
+}
+```
+
+### TypeScript Integration
+
+```typescript
+import {
+  init,
+  captureException,
+  captureMessage,
+  type InitOptions,
+  type Severity,
+  type LogEntry
+} from "vij-sdk";
+
+// Type-safe configuration
+const config: InitOptions = {
+  endpoint: process.env.VIJ_ENDPOINT!,
+  appId: "my-ts-app",
+  environment: process.env.NODE_ENV as string,
+  batch: true,
+  maxBatchSize: 20,
+  metadata: {
+    version: "1.0.0"
+  }
+};
+
+init(config);
+
+// Type-safe error capture
+function handleError(error: Error, severity: Severity = "error") {
+  captureException(error, {
+    timestamp: new Date().toISOString(),
+    handled: true
+  }, severity);
+}
+
+// Custom error class
+class ValidationError extends Error {
+  constructor(
+    message: string,
+    public field: string,
+    public value: any
+  ) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
+try {
+  throw new ValidationError("Invalid email", "email", "invalid@");
+} catch (error) {
+  if (error instanceof ValidationError) {
+    captureException(error, {
+      field: error.field,
+      value: error.value
+    }, "warning");
+  }
+}
+```
+
+### React Integration
+
+```typescript
+import { captureException, setMetadata } from "vij-sdk";
+import { useEffect } from "react";
+
+function App() {
+  useEffect(() => {
+    // Update metadata when user changes
+    setMetadata({
+      userId: currentUser?.id,
+      userRole: currentUser?.role
+    });
+  }, [currentUser]);
+
+  return <YourApp />;
+}
+
+// Error boundary
+class ErrorBoundary extends React.Component {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      route: window.location.pathname
+    });
+  }
+
+  render() {
+    return this.props.children;
+  }
+}
+```
+
+### Express Integration
+
+```typescript
+import express from "express";
+import { captureException, setMetadata } from "vij-sdk";
+
+const app = express();
+
+// Attach request context to all errors
+app.use((req, res, next) => {
+  res.locals.requestId = generateRequestId();
+  next();
+});
+
+// Error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  captureException(err, {
+    requestId: res.locals.requestId,
+    url: req.originalUrl,
+    method: req.method,
+    userId: req.user?.id,
+    ip: req.ip
+  });
+
+  res.status(500).json({ error: "Internal server error" });
+});
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Initialize once at startup">
+    Call `init()` once when your application starts, before any other code:
+
+    ```javascript
+    // Good - at app entry point
+    import { init } from "vij-sdk";
+    init({ /* config */ });
+
+    // Then start your app
+    startApp();
+    ```
+  </Accordion>
+
+  <Accordion title="Use TypeScript for type safety">
+    Import types for better IDE support and compile-time checking:
+
+    ```typescript
+    import { init, type InitOptions, type Severity } from "vij-sdk";
+
+    const config: InitOptions = { /* ... */ };
+    const level: Severity = "error";
+    ```
+  </Accordion>
+
+  <Accordion title="Flush before critical operations">
+    Ensure logs are sent before page unload, process exit, or deployments:
+
+    ```javascript
+    window.addEventListener("beforeunload", () => flush());
+    process.on("SIGTERM", async () => {
+      await flush();
+      process.exit(0);
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Use metadata for context, not in messages">
+    ```javascript
+    // Good
+    captureMessage("Payment failed", { orderId: 123, amount: 99.99 });
+
+    // Bad
+    captureMessage(`Payment failed for order 123 with amount 99.99`);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Guide" icon="sliders" href="/sdk/configuration">
+    Learn about all SDK configuration options
+  </Card>
+  <Card title="Capturing Errors" icon="bug" href="/sdk/capturing-errors">
+    Understand error and message capture patterns
+  </Card>
+  <Card title="Dashboard Features" icon="gauge" href="/dashboard/features">
+    Explore VIJ Admin dashboard capabilities
+  </Card>
+  <Card title="API Endpoints" icon="webhook" href="/api-reference/logs/post">
+    View the HTTP API documentation
+  </Card>
+</CardGroup>

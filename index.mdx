@@ -1,97 +1,176 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Introduction to VIJ"
+description: "Lightweight, self-hosted error monitoring for JavaScript and TypeScript applications"
 ---
 
-## Setting up
+VIJ is an open-source production error monitoring platform designed for modern JavaScript and TypeScript applications. It provides developers with a clean, self-hostable alternative to heavy SaaS tools like Sentry — combining simplicity, transparency, and complete control over your data.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get VIJ up and running in under 5 minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="SDK Reference" icon="code" href="/sdk/installation">
+    Integrate error tracking into your application
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Dashboard Setup" icon="gauge" href="/dashboard/setup">
+    Deploy your self-hosted monitoring dashboard
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="webhook" href="/api-reference/logs/post">
+    Explore the ingestion and analytics APIs
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What is VIJ?
 
-Everything you need to create world-class documentation.
+VIJ consists of two main components that work together to provide comprehensive error monitoring:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+### vij-sdk
 
-## Need inspiration?
+A minimal, framework-agnostic SDK that automatically captures runtime errors, unhandled rejections, and custom exception logs from both **browser** and **Node.js** environments.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+**Key Features:**
+- Automatic error capture in browser and Node.js
+- Intelligent batching and queue management
+- Rich contextual metadata (browser info, viewport, network, process details)
+- Configurable severity levels (error, warning, info)
+- TypeScript support with full type definitions
+- Zero dependencies (except tslib)
+
+### vij-admin
+
+A fullstack Next.js dashboard that serves as both the ingestion API and visualization layer.
+
+**Key Features:**
+- Real-time error monitoring dashboard
+- AI-powered error analysis with Gemini
+- Automatic error grouping and deduplication
+- Advanced filtering and full-text search
+- Analytics and trend visualization
+- MongoDB storage with optimized indexes
+- Self-hosted with complete data control
+
+## Why VIJ?
+
+<AccordionGroup>
+  <Accordion title="Complete data ownership">
+    VIJ is fully self-hosted. Your error data never leaves your infrastructure, ensuring compliance with data privacy regulations and giving you complete control over sensitive information.
+  </Accordion>
+
+  <Accordion title="Zero vendor lock-in">
+    Open-source and MIT licensed. You can modify, extend, and deploy VIJ however you need without worrying about pricing tiers, API limits, or vendor restrictions.
+  </Accordion>
+
+  <Accordion title="AI-powered insights">
+    Built-in integration with Google Gemini provides intelligent error analysis, root cause suggestions, and automated fix recommendations — without sending data to third-party services.
+  </Accordion>
+
+  <Accordion title="Developer-first design">
+    Clean, intuitive interface with powerful filtering, search, and grouping. View rich stack traces, metadata cards, and contextual information exactly when you need it.
+  </Accordion>
+</AccordionGroup>
+
+## Platform Support
+
+VIJ SDK works seamlessly across multiple environments:
+
+<Tabs>
+  <Tab title="Browser">
+    - Captures unhandled errors and promise rejections
+    - Collects browser context (viewport, screen, network)
+    - Uses sendBeacon API for reliable delivery
+    - Supports all modern browsers
+  </Tab>
+
+  <Tab title="Node.js">
+    - Captures uncaught exceptions and unhandled rejections
+    - Collects process information (memory, PID, versions)
+    - Works with Node.js 18+ (native fetch support)
+    - Compatible with Express, Next.js, and other frameworks
+  </Tab>
+
+  <Tab title="TypeScript">
+    - Full type definitions included
+    - Strict type checking support
+    - IntelliSense for all APIs
+    - Works with any TypeScript version
+  </Tab>
+</Tabs>
+
+## Use Cases
+
+VIJ is perfect for:
+
+- **Production monitoring** - Track errors in real-time across your production applications
+- **Development debugging** - Catch and analyze errors during development with full context
+- **Team collaboration** - Share error reports with full stack traces and metadata
+- **Compliance-sensitive projects** - Keep error data on your own infrastructure
+- **Multi-environment tracking** - Monitor production, staging, and development separately
+- **Open-source projects** - Self-host monitoring without SaaS costs
+
+## Architecture Overview
+
+```
+┌─────────────────┐
+│  Your App       │
+│  (Browser/Node) │
+└────────┬────────┘
+         │
+         │ vij-sdk captures errors
+         │ and sends batched logs
+         │
+         ▼
+┌─────────────────┐
+│  VIJ Admin      │
+│  (Next.js API)  │
+└────────┬────────┘
+         │
+         ├─► MongoDB (error storage)
+         │
+         ├─► Gemini AI (error analysis)
+         │
+         └─► Dashboard (visualization)
+```
+
+<Note>
+VIJ is designed to be lightweight and performant. The SDK has minimal overhead, and the dashboard scales efficiently with MongoDB indexing and intelligent caching.
+</Note>
+
+## Next Steps
+
+<Steps>
+  <Step title="Follow the quickstart guide">
+    Get VIJ running in under 5 minutes with our step-by-step quickstart guide.
+
+    [Go to Quickstart →](/quickstart)
+  </Step>
+
+  <Step title="Install the SDK">
+    Add error tracking to your application with the vij-sdk package.
+
+    [SDK Installation →](/sdk/installation)
+  </Step>
+
+  <Step title="Deploy the dashboard">
+    Set up your self-hosted monitoring dashboard with VIJ Admin.
+
+    [Dashboard Setup →](/dashboard/setup)
+  </Step>
+
+  <Step title="Explore advanced features">
+    Learn about error grouping, AI analysis, and advanced filtering.
+
+    [Advanced Guides →](/advanced/error-grouping)
+  </Step>
+</Steps>
+
+## Community and Support
+
+VIJ is actively maintained and open to contributions.
+
+- **Report issues**: [GitHub Issues](https://github.com/asengupta07/vij/issues)
+- **View source code**: [vij-sdk](https://github.com/asengupta07/vij) | [vij-admin](https://github.com/asengupta07/vij-admin)
+- **npm Package**: [vij-sdk on npm](https://www.npmjs.com/package/vij-sdk)
+
+<Check>
+Ready to get started? Head over to the [Quickstart Guide](/quickstart) to set up VIJ in minutes.
+</Check>
